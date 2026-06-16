@@ -219,9 +219,9 @@ Notes:
 - Local-only dry run per remote execution policy.
 - Real Qwen logprob smoke remains remote pending.
 
-## Run: M2_REMOTE_LOGPROB_SMOKE_PENDING
+## Run: 20260617_014506_m2_logprob_smoke
 
-Date: 2026-06-17 01:38  
+Date: 2026-06-17 01:45  
 Milestone: M2  
 Purpose: Remote real Qwen response-only logprob smoke test on 5 HH-RLHF examples.  
 Command:
@@ -243,14 +243,14 @@ python scripts/compute_logprobs.py \
   --run-name m2_logprob_smoke
 ```
 
-Config file: generated remotely in `outputs/runs/*_m2_logprob_smoke/config.yaml`  
-Git commit: pending remote workspace state  
+Config file: `outputs/runs/20260617_014506_m2_logprob_smoke/config.yaml`  
+Git commit: `6e0f1c6`  
 Model: `Qwen/Qwen2.5-1.5B-Instruct`  
 Dataset: `data/processed/hh_rlhf_eval.jsonl`  
 Seed: 42  
 GPU: remote  
-Runtime: pending  
-Status: remote_pending
+Runtime: 7.739926 seconds  
+Status: success
 
 Inputs:
 - `data/processed/hh_rlhf_eval.jsonl`
@@ -258,13 +258,24 @@ Inputs:
 
 Outputs:
 - `outputs/logprobs/smoke_instruct_5.jsonl`
-- `outputs/runs/*_m2_logprob_smoke/`
+- `outputs/runs/20260617_014506_m2_logprob_smoke/`
 
 Metrics:
 
 ```json
-{}
+{
+  "num_examples": 5,
+  "num_scored_responses": 10,
+  "min_chosen_response_tokens": 5,
+  "min_rejected_response_tokens": 4,
+  "mean_chosen_response_tokens": 37.2,
+  "mean_rejected_response_tokens": 87.2,
+  "length_normalized_logprobs_finite": true,
+  "dry_run": false
+}
 ```
 
 Notes:
-- Not executed locally because the protocol forbids local Qwen model loading and GPU inference.
+- Executed remotely because the protocol forbids local Qwen model loading and GPU inference.
+- Output line count checked: `5 outputs/logprobs/smoke_instruct_5.jsonl`.
+- Remote stderr included non-fatal warnings: invalid `OMP_NUM_THREADS` value and Transformers `torch_dtype` deprecation.

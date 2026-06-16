@@ -2,13 +2,13 @@
 
 ## Current Milestone
 Milestone: M2
-Status: blocked
-Last updated: 2026-06-17 01:38
+Status: passed
+Last updated: 2026-06-17 01:46
 
 ## Completed Milestones
 - [x] M0: Repository skeleton
 - [x] M1: HH-RLHF preprocessing
-- [ ] M2: response-only logprob computation
+- [x] M2: response-only logprob computation
 - [ ] M3: dense/base margin computation
 - [ ] M4: Coverage@τ reporting
 - [ ] M5: mask-based coupled FFN pruning
@@ -18,11 +18,11 @@ Last updated: 2026-06-17 01:38
 - [ ] M9: pilot experiment table
 
 ## Current Blockers
-- Remote Qwen logprob smoke is pending. Local dry-run masking/schema validation passed, but real model logprob computation must run on the remote machine.
+- None for M2.
 
 ## Execution Boundary
 - Local machine: lightweight tests, compile checks, fixture tests, import checks, run-directory validation only.
 - Remote machine: HH-RLHF downloads, Qwen model loading, GPU inference, pruning, and evaluation experiments.
 
 ## Next Action
-Run the M2 remote smoke command on the remote machine and provide the run output/logs. After remote success, mark M2 passed.
+Stop and wait for explicit approval to begin M3: dense/base margin computation.
