@@ -279,3 +279,98 @@ Notes:
 - Executed remotely because the protocol forbids local Qwen model loading and GPU inference.
 - Output line count checked: `5 outputs/logprobs/smoke_instruct_5.jsonl`.
 - Remote stderr included non-fatal warnings: invalid `OMP_NUM_THREADS` value and Transformers `torch_dtype` deprecation.
+
+## Run: 20260617_014918_m3_dense_margin_dry_run
+
+Date: 2026-06-17 01:49  
+Milestone: M3  
+Purpose: Local lightweight dry-run smoke for dense/base margin schema without loading models.  
+Command: `D:\anaconda3\python.exe scripts\compute_dense_margins.py --instruct-model dense-dry-run --base-model base-dry-run --data tests\fixtures\hh_rlhf_processed_fixture.jsonl --out outputs\m3_dense_margin_dry_run_20260617_0150\dense_margins.jsonl --runs-dir outputs\runs --run-name m3_dense_margin_dry_run --max-samples 2 --seed 42 --dry-run`  
+Config file: `outputs/runs/20260617_014918_m3_dense_margin_dry_run/config.yaml`  
+Git commit: `9a8ae5f` plus uncommitted M3 working-tree changes  
+Model: `dense-dry-run`  
+Dataset: local fixture `tests/fixtures/hh_rlhf_processed_fixture.jsonl`  
+Seed: 42  
+GPU: not used  
+Runtime: 0.279244 seconds  
+Status: success
+
+Inputs:
+- `tests/fixtures/hh_rlhf_processed_fixture.jsonl`
+- `scripts/compute_dense_margins.py`
+- `src/pbp/margins.py`
+
+Outputs:
+- `outputs/m3_dense_margin_dry_run_20260617_0150/dense_margins.jsonl`
+- `outputs/runs/20260617_014918_m3_dense_margin_dry_run/`
+
+Metrics:
+
+```json
+{
+  "num_examples": 2,
+  "delta_dense_finite": true,
+  "mean_delta_dense": 0.07499999999999996,
+  "min_delta_dense": 0.06999999999999995,
+  "max_delta_dense": 0.07999999999999996,
+  "dry_run": true
+}
+```
+
+Notes:
+- Local-only dry run per remote execution policy.
+- Real dense/base margin smoke remains remote pending.
+
+## Run: M3_REMOTE_DENSE_MARGIN_SMOKE_PENDING
+
+Date: 2026-06-17 01:49  
+Milestone: M3  
+Purpose: Remote real Qwen dense/base margin smoke test on 20 HH-RLHF examples.  
+Command:
+
+```bash
+source /root/.pbp_env
+cd /root/autodl-tmp/preference-boundary-pruning
+git pull
+export OMP_NUM_THREADS=1
+
+python scripts/compute_dense_margins.py \
+  --instruct-model Qwen/Qwen2.5-1.5B-Instruct \
+  --base-model Qwen/Qwen2.5-1.5B \
+  --data data/processed/hh_rlhf_eval.jsonl \
+  --max-samples 20 \
+  --out outputs/margins/dense_qwen2p5_1p5b_smoke.jsonl \
+  --dtype bfloat16 \
+  --batch-size 1 \
+  --cache-dir "$HF_HUB_CACHE" \
+  --local-files-only \
+  --run-name m3_dense_margin_smoke
+```
+
+Config file: generated remotely in `outputs/runs/*_m3_dense_margin_smoke/config.yaml`  
+Git commit: pending remote workspace state  
+Model: `Qwen/Qwen2.5-1.5B-Instruct`  
+Reference: `Qwen/Qwen2.5-1.5B`  
+Dataset: `data/processed/hh_rlhf_eval.jsonl`  
+Seed: 42  
+GPU: remote  
+Runtime: pending  
+Status: remote_pending
+
+Inputs:
+- `data/processed/hh_rlhf_eval.jsonl`
+- cached `Qwen/Qwen2.5-1.5B-Instruct`
+- cached `Qwen/Qwen2.5-1.5B`
+
+Outputs:
+- `outputs/margins/dense_qwen2p5_1p5b_smoke.jsonl`
+- `outputs/runs/*_m3_dense_margin_smoke/`
+
+Metrics:
+
+```json
+{}
+```
+
+Notes:
+- Not executed locally because the protocol forbids local Qwen model loading and GPU inference.

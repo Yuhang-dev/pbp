@@ -7,6 +7,7 @@
 - The local environment has no bare `python` command on PATH. Local checks use `D:\anaconda3\python.exe`.
 - Remote environment emitted `libgomp: Invalid value for environment variable OMP_NUM_THREADS`; M2 completed successfully, but the env var should be fixed before larger runs.
 - Transformers emitted a non-fatal `torch_dtype` deprecation warning; switch to `dtype` in a later cleanup.
+- M3 real dense/base margin smoke is pending remote execution. Local dry-run validation passed, but `outputs/margins/dense_qwen2p5_1p5b_smoke.jsonl` has not been produced remotely yet.
 
 ## Resolved
 

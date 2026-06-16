@@ -1,9 +1,9 @@
 # PROGRESS
 
 ## Current Milestone
-Milestone: M2
-Status: passed
-Last updated: 2026-06-17 01:46
+Milestone: M3
+Status: blocked
+Last updated: 2026-06-17 01:49
 
 ## Completed Milestones
 - [x] M0: Repository skeleton
@@ -18,11 +18,11 @@ Last updated: 2026-06-17 01:46
 - [ ] M9: pilot experiment table
 
 ## Current Blockers
-- None for M2.
+- Remote dense/base margin smoke is pending. Local dry-run margin schema validation passed, but real model margin computation must run on the remote machine.
 
 ## Execution Boundary
 - Local machine: lightweight tests, compile checks, fixture tests, import checks, run-directory validation only.
 - Remote machine: HH-RLHF downloads, Qwen model loading, GPU inference, pruning, and evaluation experiments.
 
 ## Next Action
-Stop and wait for explicit approval to begin M3: dense/base margin computation.
+Run the M3 remote smoke command on the remote machine and provide the run output/logs. After remote success, mark M3 passed.

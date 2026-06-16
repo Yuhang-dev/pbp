@@ -14,3 +14,4 @@
 | `outputs/runs/20260617_012943_m1_hh_rlhf_smoke/config.yaml` | M1 remote HH-RLHF preprocessing smoke config | none | `Anthropic/hh-rlhf` | 42 | Remote run produced 100 calibration and 200 evaluation records. |
 | `outputs/runs/20260617_013822_m2_logprob_dry_run/config.yaml` | M2 local dry-run logprob smoke config | `dry-run-model` | `tests/fixtures/hh_rlhf_processed_fixture.jsonl` | 42 | Validates response-only mask/schema without model loading. |
 | `outputs/runs/20260617_014506_m2_logprob_smoke/config.yaml` | M2 remote Qwen logprob smoke config | `Qwen/Qwen2.5-1.5B-Instruct` | `data/processed/hh_rlhf_eval.jsonl` | 42 | Remote run scored 5 examples and 10 responses. |
+| `outputs/runs/20260617_014918_m3_dense_margin_dry_run/config.yaml` | M3 local dry-run dense/base margin smoke config | `dense-dry-run`, `base-dry-run` | `tests/fixtures/hh_rlhf_processed_fixture.jsonl` | 42 | Validates margin schema without model loading. |
