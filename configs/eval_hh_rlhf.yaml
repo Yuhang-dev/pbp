@@ -1,0 +1,12 @@
+dataset: Anthropic/hh-rlhf
+split: train
+seed: 42
+calib_size: 0
+eval_size: 1000
+batch_size: 4
+outputs:
+  processed_dir: data/processed
+  base_logprobs: outputs/logprobs/base_qwen2p5_1p5b_eval.jsonl
+  dense_margins: outputs/margins/dense_qwen2p5_1p5b_eval.jsonl
+  coverage_summary: outputs/evals/coverage_dense_qwen2p5_1p5b_eval.json
+  histogram_csv: outputs/evals/dense_margin_histogram_qwen2p5_1p5b_eval.csv

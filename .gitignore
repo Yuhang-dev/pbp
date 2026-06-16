@@ -1,0 +1,73 @@
+# Python caches and build artifacts
+__pycache__/
+*.py[cod]
+*$py.class
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+.pyre/
+.coverage
+htmlcov/
+build/
+dist/
+*.egg-info/
+
+# Virtual environments and local environment files
+.venv/
+venv/
+env/
+ENV/
+.env
+.env.*
+!.env.example
+
+# Editors and OS metadata
+.vscode/
+.idea/
+*.swp
+*.swo
+.DS_Store
+Thumbs.db
+
+# Notebook checkpoints
+.ipynb_checkpoints/
+
+# Experiment data and generated artifacts
+data/**
+!data/
+!data/raw/
+!data/raw/.gitkeep
+!data/processed/
+!data/processed/.gitkeep
+
+outputs/**
+!outputs/
+!outputs/evals/
+!outputs/evals/.gitkeep
+!outputs/logprobs/
+!outputs/logprobs/.gitkeep
+!outputs/margins/
+!outputs/margins/.gitkeep
+!outputs/pruned_models/
+!outputs/pruned_models/.gitkeep
+!outputs/runs/
+!outputs/runs/.gitkeep
+!outputs/scores/
+!outputs/scores/.gitkeep
+!outputs/tables/
+!outputs/tables/.gitkeep
+
+# Model, dataset, and experiment caches
+.cache/
+hf_cache/
+transformers_cache/
+datasets_cache/
+torch_cache/
+wandb/
+mlruns/
+lightning_logs/
+
+# Logs and temporary files
+*.log
+*.tmp
+*.bak

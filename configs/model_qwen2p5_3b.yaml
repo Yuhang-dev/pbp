@@ -1,0 +1,5 @@
+model_size: 3b
+instruct_model: Qwen/Qwen2.5-3B-Instruct
+base_model: Qwen/Qwen2.5-3B
+dtype: bfloat16
+device_map: auto
