@@ -12,7 +12,7 @@ Do not implement everything at once.
 
 Do not run large experiments before the current milestone passes its checks.
 
-Do not run dataset downloads, Qwen model loading, GPU inference, pruning, or evaluation experiments on the local machine. Local execution is restricted to lightweight Python tests, static checks, fixture-based smoke tests, and run-directory/logging validation. All real experiments are run remotely by the user.
+Do not run dataset downloads, Qwen model loading, GPU inference, pruning, evaluation experiments, fixture smoke tests, or unit-test validation on the local machine. Local execution is restricted to syntax/static sanity checks such as `compileall`, `py_compile`, file-existence checks, and command/config drafting. All functional validation and all real experiments are run remotely by the user.
 
 ---
 
@@ -45,9 +45,9 @@ For each milestone:
 1. State the exact objective.
 2. List files you will create or modify.
 3. Implement only the current milestone.
-4. Add minimal tests.
-5. Run the tests.
-6. Run a small smoke test. If the smoke test requires downloading HH-RLHF, loading Qwen models, GPU inference, pruning, or benchmark evaluation, prepare the remote command/config/run-log entry but do not execute it locally.
+4. Add minimal tests or test commands where they clarify expected behavior, but do not treat local execution as validation.
+5. Run only local syntax/static sanity checks.
+6. Prepare the remote test/smoke command and config. Do not run functional tests or smoke tests locally.
 7. Save all commands, configs, logs, and outputs.
 8. Update progress documents.
 9. Stop and report status.
@@ -58,19 +58,22 @@ Do not continue to the next milestone until I explicitly approve.
 
 # 1.1 Local and Remote Execution Policy
 
-The local machine is only for lightweight implementation validation.
+The local machine is not a validation environment. It is only for syntax/static sanity checks and editing.
 
 Allowed locally:
 
-* unit tests using synthetic fixtures or tiny fake models;
 * `python -m compileall`;
-* import checks;
-* JSONL/YAML parsing tests on hand-written fixture files;
-* run-directory helper checks;
+* `python -m py_compile` on changed Python files;
+* file-existence and repository-structure checks;
+* static text checks that do not execute project logic;
 * command/config generation for remote runs.
 
 Forbidden locally:
 
+* running `pytest` or other functional test suites as milestone validation;
+* fixture-based smoke tests;
+* dry-run scripts that execute project logic as validation;
+* run-directory/logging helper execution as validation;
 * downloading HH-RLHF or other large datasets;
 * loading Qwen or other large Hugging Face models;
 * GPU inference;
@@ -90,7 +93,7 @@ Data disk: 50 GB
 
 Remote experiments should place Hugging Face caches, datasets, model weights, and outputs on the data disk. The agent should produce reproducible remote commands and configs, but the user runs them remotely unless explicitly stated otherwise.
 
-When a milestone definition says "Smoke command" and that command requires real data/model execution, treat it as a **remote smoke command**. For local completion of that milestone, run only the corresponding lightweight tests and record the real smoke command as `remote_pending` until the user provides remote logs or results.
+When a milestone definition says "Smoke command", treat it as a **remote smoke command** unless the user explicitly says otherwise. For local work on that milestone, run only syntax/static checks and record the real test/smoke command as `remote_pending` until the user provides remote logs or results.
 
 ---
 
@@ -323,7 +326,7 @@ Use tqdm for progress bars.
 
 Use structured JSONL for intermediate outputs.
 
-Use small sample sizes for smoke tests.
+Use small sample sizes for remote smoke tests.
 
 Do not silently overwrite outputs.
 
@@ -350,6 +353,8 @@ where applicable.
 ---
 
 # 5. Milestone Gates
+
+For every milestone, local checks are limited to syntax/static sanity checks. Any command that executes project behavior, reads generated experiment outputs, runs tests, or validates numerical/functional behavior is a remote command unless explicitly approved otherwise by the user.
 
 ## M0: Repository Skeleton
 
@@ -381,15 +386,15 @@ src/pbp/logging_utils.py
 Checks:
 
 ```bash
-python -m pytest tests/
 python -m compileall src scripts
+python -m compileall tests
 ```
 
 Definition of Done:
 
-* repo imports successfully;
+* syntax/static checks pass;
 * all required tracking files exist;
-* output run directory helper works;
+* output run directory helper is implemented and remote validation command is prepared if needed;
 * no model loading yet.
 
 Stop after M0.
@@ -428,7 +433,7 @@ Required JSONL format:
 }
 ```
 
-Smoke test command:
+Remote smoke command:
 
 ```bash
 python scripts/prepare_hh_rlhf.py \
@@ -443,7 +448,6 @@ python scripts/prepare_hh_rlhf.py \
 Checks:
 
 ```bash
-python -m pytest tests/test_data.py
 head data/processed/hh_rlhf_calib.jsonl
 wc -l data/processed/hh_rlhf_calib.jsonl
 wc -l data/processed/hh_rlhf_eval.jsonl
@@ -484,9 +488,9 @@ Requirements:
 * support Qwen chat template for instruct model;
 * use the same final formatted prompt string for base and instruct scoring where possible.
 
-Smoke test:
+Remote smoke test:
 
-Use 5 examples and Qwen2.5-1.5B or a tiny debug model if necessary.
+Use 5 examples and Qwen2.5-1.5B. Do not use a local tiny debug model as milestone validation.
 
 Command:
 
@@ -503,7 +507,6 @@ python scripts/compute_logprobs.py \
 Checks:
 
 ```bash
-python -m pytest tests/test_logprobs.py
 head outputs/logprobs/smoke_instruct_5.jsonl
 ```
 
@@ -543,7 +546,7 @@ ell_base_rejected
 delta_dense
 ```
 
-Smoke command:
+Remote smoke command:
 
 ```bash
 python scripts/compute_dense_margins.py \
@@ -559,7 +562,6 @@ python scripts/compute_dense_margins.py \
 Checks:
 
 ```bash
-python -m pytest tests/test_margins.py
 head outputs/margins/dense_qwen2p5_1p5b_smoke.jsonl
 ```
 
@@ -567,7 +569,7 @@ Definition of Done:
 
 * delta_dense is finite;
 * output has one line per input example;
-* dense model against itself would produce zero crossing in later tests;
+* dense model against itself would produce zero crossing in later remote tests;
 * logs updated.
 
 Stop after M3.
@@ -601,7 +603,7 @@ median_delta_dense
 positive_margin_quantiles
 ```
 
-Smoke command:
+Remote smoke command:
 
 ```bash
 python scripts/report_coverage.py \
@@ -613,7 +615,6 @@ python scripts/report_coverage.py \
 Checks:
 
 ```bash
-python -m pytest tests/test_bcr_metrics.py
 cat outputs/evals/coverage_qwen2p5_1p5b_smoke.json
 ```
 
@@ -653,7 +654,7 @@ z_j = silu(gate_j) * up_j
 
 Pruning neuron j means z_j is zeroed before down_proj.
 
-Smoke command:
+Remote smoke command:
 
 ```bash
 python scripts/apply_mask_pruning.py \
@@ -696,7 +697,7 @@ magnitude
 activation
 ```
 
-Smoke commands:
+Remote smoke commands:
 
 ```bash
 python scripts/score_pruning_importance.py \
@@ -754,7 +755,7 @@ Important:
 
 Coverage@τ is always based on dense margins, not pruned margins.
 
-Smoke command:
+Remote smoke command:
 
 ```bash
 python scripts/evaluate_bcr.py \
@@ -808,7 +809,7 @@ Requirements:
 * support micro-batching;
 * save score statistics.
 
-Smoke command:
+Remote smoke command:
 
 ```bash
 python scripts/score_pruning_importance.py \
@@ -902,7 +903,13 @@ passed / failed / blocked
 ...
 ````
 
-### Tests
+### Local syntax/static checks
+
+```bash
+...
+```
+
+### Remote validation
 
 ```bash
 ...

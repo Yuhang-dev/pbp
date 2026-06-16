@@ -3,7 +3,7 @@
 ## Current Milestone
 Milestone: M5
 Status: blocked
-Last updated: 2026-06-17 02:10
+Last updated: 2026-06-17 02:16
 
 ## Completed Milestones
 - [x] M0: Repository skeleton
@@ -18,11 +18,11 @@ Last updated: 2026-06-17 02:10
 - [ ] M9: pilot experiment table
 
 ## Current Blockers
-- M5 implementation and local dry-run passed, but real Qwen mask-pruning smoke is remote pending. M5 cannot be marked passed until the remote run confirms model loading, generation, exact mask counts, and no shape errors.
+- M5 implementation is present, but real Qwen mask-pruning smoke is remote pending. M5 cannot be marked passed until the remote run confirms model loading, generation, exact mask counts, and no shape errors.
 
 ## Execution Boundary
-- Local machine: lightweight tests, compile checks, fixture tests, import checks, run-directory validation only.
-- Remote machine: HH-RLHF downloads, Qwen model loading, GPU inference, pruning, and evaluation experiments.
+- Local machine: syntax/static checks only, such as `compileall`, `py_compile`, file-existence checks, and command/config drafting.
+- Remote machine: all functional validation, tests, smoke runs, HH-RLHF downloads, Qwen model loading, GPU inference, pruning, and evaluation experiments.
 
 ## Next Action
 Run the M5 remote smoke command from `EXPERIMENTS.md`, then update M5 to passed if the remote metrics and status files are successful.

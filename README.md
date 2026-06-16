@@ -69,10 +69,10 @@ python scripts/report_coverage.py \
   --histogram-out outputs/evals/dense_margin_histogram_qwen2p5_1p5b_eval.csv
 ```
 
-Run local tests:
+Run local syntax/static checks only:
 
 ```bash
-python -m pytest
+python -m compileall src scripts tests
 ```
 
-See `EXPERIMENTS.md` for remote execution notes and storage layout.
+Run functional tests, smoke runs, model loading, pruning, and evaluation on the remote machine. See `EXPERIMENTS.md` for remote execution notes and storage layout.

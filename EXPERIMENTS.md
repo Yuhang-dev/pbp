@@ -4,15 +4,14 @@ These notes are separate from the implementation docs so remote experiment setup
 
 ## Local Machine
 
-The local machine is used only for Python/conda testing:
+The local machine is used only for syntax/static sanity checks and command editing. Do not use local runs as milestone validation.
 
 ```bash
 cd preference-boundary-pruning
-pip install -e .
-python -m pytest
+python -m compileall src scripts tests
 ```
 
-Do not run Qwen model inference locally unless the environment has a suitable GPU and enough memory.
+Do not run `pytest`, fixture smoke tests, dry-run validation scripts, Qwen model inference, pruning, or evaluation locally. Functional validation belongs on the remote machine.
 
 ## Remote Machine
 
