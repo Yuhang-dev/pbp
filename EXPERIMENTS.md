@@ -66,6 +66,43 @@ python scripts/compute_dense_margins.py \
 
 After the smoke test, run the 1k Milestone 1 evaluation from `README.md`.
 
+## M5 Remote Smoke
+
+Run this on the remote machine only, after pulling the latest commit:
+
+```bash
+source /root/.pbp_env
+cd /root/autodl-tmp/preference-boundary-pruning
+git pull
+export OMP_NUM_THREADS=1
+
+python scripts/apply_mask_pruning.py \
+  --model Qwen/Qwen2.5-1.5B-Instruct \
+  --method random \
+  --ratio 0.10 \
+  --out outputs/pruned_models/qwen2p5_1p5b_random_mask_10p \
+  --dtype bfloat16 \
+  --cache-dir "$HF_HUB_CACHE" \
+  --local-files-only \
+  --run-name m5_random_mask_10p_smoke \
+  --smoke-generate \
+  --max-new-tokens 16
+```
+
+Check the generated artifacts:
+
+```bash
+cat outputs/pruned_models/qwen2p5_1p5b_random_mask_10p/mask_config.json
+cat outputs/runs/*_m5_random_mask_10p_smoke/metrics.json
+cat outputs/runs/*_m5_random_mask_10p_smoke/status.json
+```
+
+Expected smoke criteria:
+
+- `status.json` has `"status": "success"`.
+- `metrics.json` has `"requested_ratio": 0.1`, `"actual_ratio": 0.1`, and `"generation_success": true`.
+- `mask_config.json` reports the Qwen MLP groups and no shape errors occurred.
+
 ## Milestone Boundary
 
-Milestone 1 stops after dense margins and coverage reporting. Do not run pruning, Taylor scoring, post-pruning recovery, DPO, or LoRA in this milestone.
+Current M5 work stops after mask-based random pruning support and remote smoke verification. Do not run M6 scoring baselines, Taylor scoring, post-pruning recovery, DPO, or LoRA until explicitly approved.

@@ -1,9 +1,9 @@
 # PROGRESS
 
 ## Current Milestone
-Milestone: M4
-Status: passed
-Last updated: 2026-06-17 02:03
+Milestone: M5
+Status: blocked
+Last updated: 2026-06-17 02:10
 
 ## Completed Milestones
 - [x] M0: Repository skeleton
@@ -18,11 +18,11 @@ Last updated: 2026-06-17 02:03
 - [ ] M9: pilot experiment table
 
 ## Current Blockers
-- None for M4.
+- M5 implementation and local dry-run passed, but real Qwen mask-pruning smoke is remote pending. M5 cannot be marked passed until the remote run confirms model loading, generation, exact mask counts, and no shape errors.
 
 ## Execution Boundary
 - Local machine: lightweight tests, compile checks, fixture tests, import checks, run-directory validation only.
 - Remote machine: HH-RLHF downloads, Qwen model loading, GPU inference, pruning, and evaluation experiments.
 
 ## Next Action
-Stop and wait for explicit approval to begin M5: mask-based coupled FFN pruning.
+Run the M5 remote smoke command from `EXPERIMENTS.md`, then update M5 to passed if the remote metrics and status files are successful.

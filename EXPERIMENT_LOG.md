@@ -491,3 +491,104 @@ Metrics:
 Notes:
 - Executed remotely because the protocol treats real experiment outputs as remote-only.
 - Output files checked: `outputs/evals/coverage_qwen2p5_1p5b_smoke.json` and `outputs/evals/coverage_qwen2p5_1p5b_smoke_histogram.csv`.
+
+## Run: 20260617_020948_m5_mask_pruning_dry_run
+
+Date: 2026-06-17 02:09
+Milestone: M5
+Purpose: Local lightweight dry-run for mask artifact generation and global pruning ratio accounting without loading a model.
+Command: `D:\anaconda3\python.exe scripts\apply_mask_pruning.py --model dry-run-model --method random --ratio 0.25 --out outputs\m5_mask_pruning_dry_run_20260617_1420 --runs-dir outputs\runs --run-name m5_mask_pruning_dry_run --seed 42 --dry-run --dry-run-layers 2 --dry-run-intermediate-size 8`
+Config file: `outputs/runs/20260617_020948_m5_mask_pruning_dry_run/config.yaml`
+Git commit: `9a4f211` plus uncommitted M5 working-tree changes
+Model: dry-run-model
+Dataset: none
+Seed: 42
+GPU: not used
+Runtime: 0.307234 seconds
+Status: success
+
+Inputs:
+- `scripts/apply_mask_pruning.py`
+- `src/pbp/ffn_units.py`
+- `src/pbp/pruning.py`
+
+Outputs:
+- `outputs/m5_mask_pruning_dry_run_20260617_1420/mask_config.json`
+- `outputs/m5_mask_pruning_dry_run_20260617_1420/masks.json`
+- `outputs/runs/20260617_020948_m5_mask_pruning_dry_run/`
+
+Metrics:
+
+```json
+{
+  "method": "random",
+  "requested_ratio": 0.25,
+  "total_units": 16,
+  "num_pruned_units": 4,
+  "num_kept_units": 12,
+  "actual_ratio": 0.25,
+  "num_masked_modules": 2,
+  "dry_run": true,
+  "generation_success": null,
+  "generated_new_tokens": null
+}
+```
+
+Notes:
+- Local-only dry run per remote execution policy.
+- The torch-dependent forward masking unit test is skipped locally because torch is not installed in the local conda environment.
+- Real Qwen mask-pruning smoke remains remote pending.
+
+## Run: M5_REMOTE_SMOKE_PENDING_20260617
+
+Date: 2026-06-17
+Milestone: M5
+Purpose: Remote real Qwen mask-based coupled FFN pruning smoke test.
+Command:
+
+```bash
+source /root/.pbp_env
+cd /root/autodl-tmp/preference-boundary-pruning
+git pull
+export OMP_NUM_THREADS=1
+
+python scripts/apply_mask_pruning.py \
+  --model Qwen/Qwen2.5-1.5B-Instruct \
+  --method random \
+  --ratio 0.10 \
+  --out outputs/pruned_models/qwen2p5_1p5b_random_mask_10p \
+  --dtype bfloat16 \
+  --cache-dir "$HF_HUB_CACHE" \
+  --local-files-only \
+  --run-name m5_random_mask_10p_smoke \
+  --smoke-generate \
+  --max-new-tokens 16
+```
+
+Config file: generated at `outputs/runs/*_m5_random_mask_10p_smoke/config.yaml` when run remotely
+Git commit: pending
+Model: `Qwen/Qwen2.5-1.5B-Instruct`
+Dataset: none
+Seed: 42
+GPU: remote
+Runtime: pending
+Status: remote_pending
+
+Inputs:
+- cached `Qwen/Qwen2.5-1.5B-Instruct`
+
+Outputs:
+- `outputs/pruned_models/qwen2p5_1p5b_random_mask_10p/mask_config.json`
+- `outputs/pruned_models/qwen2p5_1p5b_random_mask_10p/masks.json`
+- `outputs/pruned_models/qwen2p5_1p5b_random_mask_10p/masks.pt`
+- `outputs/runs/*_m5_random_mask_10p_smoke/`
+
+Metrics:
+
+```json
+{}
+```
+
+Notes:
+- Execute remotely only. This command loads Qwen and runs generation.
+- M5 remains blocked until this remote run reports success with `actual_ratio=0.10`, `generation_success=true`, and no shape errors.
