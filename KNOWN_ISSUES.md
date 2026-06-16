@@ -6,6 +6,7 @@
 - Local conda Python does not have `torch`; one toy inference unit test is skipped locally. Real model tests must run remotely.
 - The workspace is not currently a git repository, so run metadata records `git_commit: null`.
 - The local environment has no bare `python` command on PATH. Local checks use `D:\anaconda3\python.exe`.
+- M1 real HH-RLHF smoke is pending remote execution. Local fixture preprocessing passed, but `data/processed/hh_rlhf_calib.jsonl` and `data/processed/hh_rlhf_eval.jsonl` from the real dataset are not produced locally.
 
 ## Resolved
 

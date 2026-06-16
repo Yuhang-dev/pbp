@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import random
 from os.path import commonprefix
 from typing import Any
 
@@ -56,6 +57,75 @@ def hh_rlhf_record_to_preference(
         "rejected": rejected,
         "source": source,
     }
+
+
+def prepare_preference_records(
+    raw_records: list[dict[str, Any]],
+    *,
+    calib_size: int,
+    eval_size: int,
+    seed: int,
+    source: str = "hh-rlhf",
+    id_prefix: str = "hh-rlhf",
+    skip_bad_records: bool = False,
+    max_samples: int | None = None,
+) -> tuple[list[dict[str, str]], list[dict[str, str]], int]:
+    if calib_size < 0:
+        raise ValueError("calib_size must be >= 0")
+    if eval_size <= 0:
+        raise ValueError("eval_size must be > 0")
+    if max_samples is not None and max_samples <= 0:
+        raise ValueError("max_samples must be > 0 when provided")
+
+    total_needed = calib_size + eval_size
+    if max_samples is not None:
+        total_needed = min(total_needed, max_samples)
+    if total_needed <= calib_size:
+        raise ValueError("max_samples leaves no evaluation records")
+
+    shuffled = list(raw_records)
+    random.Random(seed).shuffle(shuffled)
+
+    records: list[dict[str, str]] = []
+    skipped = 0
+    for raw_index, row in enumerate(shuffled):
+        try:
+            record = hh_rlhf_record_to_preference(
+                row,
+                raw_index,
+                source=source,
+                id_prefix=id_prefix,
+            )
+        except Exception:
+            if not skip_bad_records:
+                raise
+            skipped += 1
+            continue
+        records.append(record)
+        if len(records) >= total_needed:
+            break
+
+    if len(records) < total_needed:
+        raise ValueError(f"Only prepared {len(records)} records, needed {total_needed}")
+
+    calib_records = records[:calib_size]
+    eval_records = records[calib_size:total_needed]
+    validate_disjoint_splits(calib_records, eval_records)
+    for record in calib_records + eval_records:
+        validate_preference_record(record)
+    return calib_records, eval_records, skipped
+
+
+def validate_disjoint_splits(
+    calib_records: list[dict[str, Any]],
+    eval_records: list[dict[str, Any]],
+) -> None:
+    calib_ids = {str(record["id"]) for record in calib_records}
+    eval_ids = {str(record["id"]) for record in eval_records}
+    overlap = calib_ids.intersection(eval_ids)
+    if overlap:
+        sample = sorted(overlap)[:5]
+        raise ValueError(f"Calibration/evaluation splits overlap: {sample}")
 
 
 def validate_preference_record(record: dict[str, Any]) -> None:

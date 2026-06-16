@@ -1,9 +1,9 @@
 # PROGRESS
 
 ## Current Milestone
-Milestone: M0
-Status: passed
-Last updated: 2026-06-16 22:37
+Milestone: M1
+Status: in_progress
+Last updated: 2026-06-17 00:47
 
 ## Completed Milestones
 - [x] M0: Repository skeleton
@@ -18,11 +18,11 @@ Last updated: 2026-06-16 22:37
 - [ ] M9: pilot experiment table
 
 ## Current Blockers
-- None for M0.
+- Remote HH-RLHF smoke run is pending. Local fixture preprocessing passed, but real dataset download/preprocessing must run on the remote machine.
 
 ## Execution Boundary
 - Local machine: lightweight tests, compile checks, fixture tests, import checks, run-directory validation only.
 - Remote machine: HH-RLHF downloads, Qwen model loading, GPU inference, pruning, and evaluation experiments.
 
 ## Next Action
-Wait for explicit approval to begin M1 under the protocol. Existing M1-M4-style code must be revalidated milestone by milestone before being marked passed.
+Run the M1 remote smoke command on the remote machine and provide the run output/logs. After remote success, mark M1 passed.

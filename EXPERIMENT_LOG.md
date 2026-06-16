@@ -77,3 +77,92 @@ Metrics:
 
 Notes:
 - The skipped test requires `torch`, which is not installed in the local conda environment. This is acceptable for local lightweight validation.
+
+## Run: 20260617_004902_m1_hh_rlhf_fixture_smoke
+
+Date: 2026-06-17 00:47  
+Milestone: M1  
+Purpose: Local lightweight fixture smoke test for HH-RLHF preprocessing without downloading datasets.  
+Command: `D:\anaconda3\python.exe scripts\prepare_hh_rlhf.py --input-jsonl tests\fixtures\hh_rlhf_raw_fixture.jsonl --calib-size 2 --eval-size 2 --seed 42 --out-dir outputs\m1_fixture_smoke_20260617_0049\processed --runs-dir outputs\runs --run-name m1_hh_rlhf_fixture_smoke`  
+Config file: `outputs/runs/20260617_004902_m1_hh_rlhf_fixture_smoke/config.yaml`  
+Git commit: `fd1ee6f` plus uncommitted M1 working-tree changes  
+Model: none  
+Dataset: local fixture `tests/fixtures/hh_rlhf_raw_fixture.jsonl`  
+Seed: 42  
+GPU: not used  
+Runtime: 0.280856 seconds  
+Status: success
+
+Inputs:
+- `tests/fixtures/hh_rlhf_raw_fixture.jsonl`
+- `scripts/prepare_hh_rlhf.py`
+- `src/pbp/data.py`
+
+Outputs:
+- `outputs/m1_fixture_smoke_20260617_0049/processed/hh_rlhf_calib.jsonl`
+- `outputs/m1_fixture_smoke_20260617_0049/processed/hh_rlhf_eval.jsonl`
+- `outputs/runs/20260617_004902_m1_hh_rlhf_fixture_smoke/`
+
+Metrics:
+
+```json
+{
+  "num_raw_records": 5,
+  "num_calib_records": 2,
+  "num_eval_records": 2,
+  "num_total_records": 4,
+  "num_skipped_records": 0,
+  "calib_eval_disjoint": true,
+  "empty_chosen_or_rejected": 0
+}
+```
+
+Notes:
+- Local-only fixture smoke per remote execution policy.
+- Real HH-RLHF preprocessing remains remote pending.
+
+## Run: M1_REMOTE_HH_RLHF_SMOKE_PENDING
+
+Date: 2026-06-17 00:47  
+Milestone: M1  
+Purpose: Remote real HH-RLHF preprocessing smoke test.  
+Command:
+
+```bash
+source /root/.pbp_env
+cd /root/autodl-tmp/preference-boundary-pruning
+
+python scripts/prepare_hh_rlhf.py \
+  --dataset Anthropic/hh-rlhf \
+  --calib-size 100 \
+  --eval-size 200 \
+  --seed 42 \
+  --out-dir data/processed \
+  --run-name m1_hh_rlhf_smoke
+```
+
+Config file: generated remotely in `outputs/runs/*_m1_hh_rlhf_smoke/config.yaml`  
+Git commit: pending remote workspace state  
+Model: none  
+Dataset: `Anthropic/hh-rlhf`  
+Seed: 42  
+GPU: not used  
+Runtime: pending  
+Status: remote_pending
+
+Inputs:
+- `Anthropic/hh-rlhf`
+
+Outputs:
+- `data/processed/hh_rlhf_calib.jsonl`
+- `data/processed/hh_rlhf_eval.jsonl`
+- `outputs/runs/*_m1_hh_rlhf_smoke/`
+
+Metrics:
+
+```json
+{}
+```
+
+Notes:
+- Not executed locally because the protocol forbids local dataset downloads.

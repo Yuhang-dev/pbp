@@ -1,0 +1,5 @@
+{"chosen":"\n\nHuman: hello\n\nAssistant: helpful answer 0","rejected":"\n\nHuman: hello\n\nAssistant: bad answer 0"}
+{"chosen":"\n\nHuman: explain pruning\n\nAssistant: clear answer 1","rejected":"\n\nHuman: explain pruning\n\nAssistant: unclear answer 1"}
+{"chosen":"\n\nHuman: write code\n\nAssistant: safe code answer 2","rejected":"\n\nHuman: write code\n\nAssistant: unsafe code answer 2"}
+{"chosen":"\n\nHuman: summarize\n\nAssistant: concise answer 3","rejected":"\n\nHuman: summarize\n\nAssistant: wrong answer 3"}
+{"chosen":"\n\nHuman: plan\n\nAssistant: structured answer 4","rejected":"\n\nHuman: plan\n\nAssistant: vague answer 4"}
