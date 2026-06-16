@@ -121,9 +121,9 @@ Notes:
 - Local-only fixture smoke per remote execution policy.
 - Real HH-RLHF preprocessing remains remote pending.
 
-## Run: M1_REMOTE_HH_RLHF_SMOKE_PENDING
+## Run: 20260617_012943_m1_hh_rlhf_smoke
 
-Date: 2026-06-17 00:47  
+Date: 2026-06-17 01:29  
 Milestone: M1  
 Purpose: Remote real HH-RLHF preprocessing smoke test.  
 Command:
@@ -141,14 +141,14 @@ python scripts/prepare_hh_rlhf.py \
   --run-name m1_hh_rlhf_smoke
 ```
 
-Config file: generated remotely in `outputs/runs/*_m1_hh_rlhf_smoke/config.yaml`  
-Git commit: pending remote workspace state  
+Config file: `outputs/runs/20260617_012943_m1_hh_rlhf_smoke/config.yaml`  
+Git commit: `2411147`  
 Model: none  
 Dataset: `Anthropic/hh-rlhf`  
 Seed: 42  
 GPU: not used  
-Runtime: pending  
-Status: remote_pending
+Runtime: 46.790961 seconds  
+Status: success
 
 Inputs:
 - `Anthropic/hh-rlhf`
@@ -156,13 +156,22 @@ Inputs:
 Outputs:
 - `data/processed/hh_rlhf_calib.jsonl`
 - `data/processed/hh_rlhf_eval.jsonl`
-- `outputs/runs/*_m1_hh_rlhf_smoke/`
+- `outputs/runs/20260617_012943_m1_hh_rlhf_smoke/`
 
 Metrics:
 
 ```json
-{}
+{
+  "num_raw_records": 160800,
+  "num_calib_records": 100,
+  "num_eval_records": 200,
+  "num_total_records": 300,
+  "num_skipped_records": 0,
+  "calib_eval_disjoint": true,
+  "empty_chosen_or_rejected": 0
+}
 ```
 
 Notes:
-- Not executed locally because the protocol forbids local dataset downloads.
+- Executed remotely because the protocol forbids local dataset downloads.
+- Checked line counts: `100 data/processed/hh_rlhf_calib.jsonl`, `200 data/processed/hh_rlhf_eval.jsonl`.
