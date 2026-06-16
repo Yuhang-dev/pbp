@@ -432,9 +432,9 @@ Notes:
 - Local-only fixture smoke per remote execution policy.
 - Real dense-margin coverage smoke remains remote pending.
 
-## Run: M4_REMOTE_COVERAGE_SMOKE_PENDING
+## Run: 20260617_020235_m4_coverage_smoke
 
-Date: 2026-06-17 01:55  
+Date: 2026-06-17 02:02  
 Milestone: M4  
 Purpose: Remote Coverage@tau report on real dense-margin smoke output.  
 Command:
@@ -451,14 +451,14 @@ python scripts/report_coverage.py \
   --run-name m4_coverage_smoke
 ```
 
-Config file: generated remotely in `outputs/runs/*_m4_coverage_smoke/config.yaml`  
-Git commit: pending remote workspace state  
+Config file: `outputs/runs/20260617_020235_m4_coverage_smoke/config.yaml`  
+Git commit: `1a50c9d`  
 Model: none  
 Dataset: `outputs/margins/dense_qwen2p5_1p5b_smoke.jsonl`  
 Seed: 42  
 GPU: not used  
-Runtime: pending  
-Status: remote_pending
+Runtime: 0.047963 seconds  
+Status: success
 
 Inputs:
 - `outputs/margins/dense_qwen2p5_1p5b_smoke.jsonl`
@@ -466,13 +466,28 @@ Inputs:
 Outputs:
 - `outputs/evals/coverage_qwen2p5_1p5b_smoke.json`
 - `outputs/evals/coverage_qwen2p5_1p5b_smoke_histogram.csv`
-- `outputs/runs/*_m4_coverage_smoke/`
+- `outputs/runs/20260617_020235_m4_coverage_smoke/`
 
 Metrics:
 
 ```json
-{}
+{
+  "num_examples": 20,
+  "coverage_at_0": 0.6,
+  "coverage_at_q25": 0.45,
+  "coverage_at_q50": 0.3,
+  "coverage_at_q75": 0.15,
+  "preference_accuracy": 0.6,
+  "mean_delta_dense": 0.044380287931350404,
+  "median_delta_dense": 0.023675782385889743,
+  "positive_q25": 0.03139724181309256,
+  "positive_q50": 0.16378641597378119,
+  "positive_q75": 0.26488588120991663,
+  "coverage_metrics_valid": true,
+  "numeric_metrics_finite": true
+}
 ```
 
 Notes:
-- Not executed locally because the protocol treats real experiment outputs as remote-only.
+- Executed remotely because the protocol treats real experiment outputs as remote-only.
+- Output files checked: `outputs/evals/coverage_qwen2p5_1p5b_smoke.json` and `outputs/evals/coverage_qwen2p5_1p5b_smoke_histogram.csv`.
