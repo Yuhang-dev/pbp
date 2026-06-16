@@ -382,3 +382,97 @@ Metrics:
 Notes:
 - Executed remotely because the protocol forbids local Qwen model loading and GPU inference.
 - Output line count checked: `20 outputs/margins/dense_qwen2p5_1p5b_smoke.jsonl`.
+
+## Run: 20260617_015536_m4_coverage_fixture
+
+Date: 2026-06-17 01:55  
+Milestone: M4  
+Purpose: Local lightweight fixture smoke for Coverage@tau reporting and histogram CSV generation.  
+Command: `D:\anaconda3\python.exe scripts\report_coverage.py --dense-margins tests\fixtures\dense_margins_fixture.jsonl --out outputs\m4_coverage_fixture_20260617_0158\coverage.json --histogram-out outputs\m4_coverage_fixture_20260617_0158\histogram.csv --histogram-bins 2 --runs-dir outputs\runs --run-name m4_coverage_fixture --seed 42`  
+Config file: `outputs/runs/20260617_015536_m4_coverage_fixture/config.yaml`  
+Git commit: `993050f` plus uncommitted M4 working-tree changes  
+Model: none  
+Dataset: local fixture `tests/fixtures/dense_margins_fixture.jsonl`  
+Seed: 42  
+GPU: not used  
+Runtime: 0.277853 seconds  
+Status: success
+
+Inputs:
+- `tests/fixtures/dense_margins_fixture.jsonl`
+- `scripts/report_coverage.py`
+- `src/pbp/metrics.py`
+
+Outputs:
+- `outputs/m4_coverage_fixture_20260617_0158/coverage.json`
+- `outputs/m4_coverage_fixture_20260617_0158/histogram.csv`
+- `outputs/runs/20260617_015536_m4_coverage_fixture/`
+
+Metrics:
+
+```json
+{
+  "num_examples": 4,
+  "coverage_at_0": 0.75,
+  "coverage_at_q25": 0.5,
+  "coverage_at_q50": 0.25,
+  "coverage_at_q75": 0.25,
+  "preference_accuracy": 0.75,
+  "mean_delta_dense": 0.10000000000000002,
+  "median_delta_dense": 0.15000000000000002,
+  "positive_q25": 0.15000000000000002,
+  "positive_q50": 0.2,
+  "positive_q75": 0.25,
+  "coverage_metrics_valid": true,
+  "numeric_metrics_finite": true
+}
+```
+
+Notes:
+- Local-only fixture smoke per remote execution policy.
+- Real dense-margin coverage smoke remains remote pending.
+
+## Run: M4_REMOTE_COVERAGE_SMOKE_PENDING
+
+Date: 2026-06-17 01:55  
+Milestone: M4  
+Purpose: Remote Coverage@tau report on real dense-margin smoke output.  
+Command:
+
+```bash
+source /root/.pbp_env
+cd /root/autodl-tmp/preference-boundary-pruning
+git pull
+
+python scripts/report_coverage.py \
+  --dense-margins outputs/margins/dense_qwen2p5_1p5b_smoke.jsonl \
+  --out outputs/evals/coverage_qwen2p5_1p5b_smoke.json \
+  --histogram-out outputs/evals/coverage_qwen2p5_1p5b_smoke_histogram.csv \
+  --run-name m4_coverage_smoke
+```
+
+Config file: generated remotely in `outputs/runs/*_m4_coverage_smoke/config.yaml`  
+Git commit: pending remote workspace state  
+Model: none  
+Dataset: `outputs/margins/dense_qwen2p5_1p5b_smoke.jsonl`  
+Seed: 42  
+GPU: not used  
+Runtime: pending  
+Status: remote_pending
+
+Inputs:
+- `outputs/margins/dense_qwen2p5_1p5b_smoke.jsonl`
+
+Outputs:
+- `outputs/evals/coverage_qwen2p5_1p5b_smoke.json`
+- `outputs/evals/coverage_qwen2p5_1p5b_smoke_histogram.csv`
+- `outputs/runs/*_m4_coverage_smoke/`
+
+Metrics:
+
+```json
+{}
+```
+
+Notes:
+- Not executed locally because the protocol treats real experiment outputs as remote-only.

@@ -1,9 +1,9 @@
 # PROGRESS
 
 ## Current Milestone
-Milestone: M3
-Status: passed
-Last updated: 2026-06-17 01:52
+Milestone: M4
+Status: blocked
+Last updated: 2026-06-17 01:55
 
 ## Completed Milestones
 - [x] M0: Repository skeleton
@@ -18,11 +18,11 @@ Last updated: 2026-06-17 01:52
 - [ ] M9: pilot experiment table
 
 ## Current Blockers
-- None for M3.
+- Remote Coverage@tau smoke is pending. Local fixture coverage reporting passed, but real dense-margin reporting must run on the remote machine.
 
 ## Execution Boundary
 - Local machine: lightweight tests, compile checks, fixture tests, import checks, run-directory validation only.
 - Remote machine: HH-RLHF downloads, Qwen model loading, GPU inference, pruning, and evaluation experiments.
 
 ## Next Action
-Stop and wait for explicit approval to begin M4: Coverage@τ reporting.
+Run the M4 remote smoke command on the remote machine and provide the run output/logs. After remote success, mark M4 passed.

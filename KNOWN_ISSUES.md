@@ -7,6 +7,7 @@
 - The local environment has no bare `python` command on PATH. Local checks use `D:\anaconda3\python.exe`.
 - Remote environment emitted `libgomp: Invalid value for environment variable OMP_NUM_THREADS`; M2 completed successfully, but the env var should be fixed before larger runs.
 - Transformers emitted a non-fatal `torch_dtype` deprecation warning; switch to `dtype` in a later cleanup.
+- M4 real Coverage@tau report is pending remote execution. Local fixture reporting passed, but `outputs/evals/coverage_qwen2p5_1p5b_smoke.json` has not been produced remotely yet.
 
 ## Resolved
 

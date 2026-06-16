@@ -32,6 +32,19 @@ def coverage_at_thresholds(
     }
 
 
+def coverage_at_thresholds_snake(
+    deltas: list[float],
+    thresholds: dict[str, float] | None = None,
+) -> dict[str, float]:
+    if thresholds is None:
+        thresholds = positive_margin_thresholds(deltas)
+    values = np.asarray(deltas, dtype=float)
+    return {
+        f"coverage_at_{name}": float(np.mean(values > tau))
+        for name, tau in thresholds.items()
+    }
+
+
 def preference_accuracy(deltas: list[float]) -> float:
     if not deltas:
         raise ValueError("No dense margins provided")
@@ -55,11 +68,19 @@ def summarize_dense_margins(
 ) -> dict[str, Any]:
     deltas = [float(record["delta_dense"]) for record in records]
     thresholds = positive_margin_thresholds(deltas)
+    positive = np.asarray([d for d in deltas if d > 0], dtype=float)
     arr = np.asarray(deltas, dtype=float)
     summary: dict[str, Any] = {
         "num_pairs": int(arr.size),
         "thresholds": thresholds,
+        "positive_margin_quantiles": {
+            "q25": float(np.quantile(positive, 0.25)),
+            "q50": float(np.quantile(positive, 0.50)),
+            "q75": float(np.quantile(positive, 0.75)),
+        },
         "preference_accuracy": preference_accuracy(deltas),
+        "mean_delta_dense": float(np.mean(arr)),
+        "median_delta_dense": float(np.median(arr)),
         "mean_dense_margin": float(np.mean(arr)),
         "std_dense_margin": float(np.std(arr)),
         "min_dense_margin": float(np.min(arr)),
@@ -74,6 +95,7 @@ def summarize_dense_margins(
         "histogram": histogram(deltas, bins=bins),
     }
     summary.update(coverage_at_thresholds(deltas, thresholds))
+    summary.update(coverage_at_thresholds_snake(deltas, thresholds))
     return summary
 
 
