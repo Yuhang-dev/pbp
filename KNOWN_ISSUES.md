@@ -7,6 +7,7 @@
 - The local environment has no bare `python` command on PATH. Syntax/static checks use `D:\anaconda3\python.exe`.
 - Remote environment emitted `libgomp: Invalid value for environment variable OMP_NUM_THREADS`; M2 completed successfully, but the env var should be fixed before larger runs.
 - Transformers emitted a non-fatal `torch_dtype` deprecation warning; switch to `dtype` in a later cleanup.
+- M7 BCR smoke is remote pending. M7 cannot be marked passed until dense-self BCR is zero and random 10% masked pruning reports finite BCR metrics.
 
 ## Resolved
 

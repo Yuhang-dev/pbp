@@ -193,6 +193,62 @@ Expected smoke criteria:
 - All three `metrics.json` files report `scores_finite=true`, `total_units=250880`, and `actual_ratio=0.1`.
 - The mask comparison script succeeds, confirming selected pruning masks differ across methods.
 
+## M7 Remote Smoke
+
+Run these on the remote machine only, after pulling the latest commit:
+
+```bash
+source /root/.pbp_env
+cd /root/autodl-tmp/preference-boundary-pruning
+git pull
+export OMP_NUM_THREADS=1
+
+python scripts/evaluate_bcr.py \
+  --model Qwen/Qwen2.5-1.5B-Instruct \
+  --base-model Qwen/Qwen2.5-1.5B \
+  --dense-margins outputs/margins/dense_qwen2p5_1p5b_smoke.jsonl \
+  --data data/processed/hh_rlhf_eval.jsonl \
+  --max-samples 20 \
+  --out outputs/evals/bcr_dense_self_smoke.json \
+  --records-out outputs/evals/bcr_dense_self_smoke_records.jsonl \
+  --dtype bfloat16 \
+  --batch-size 1 \
+  --cache-dir "$HF_HUB_CACHE" \
+  --local-files-only \
+  --run-name m7_bcr_dense_self_smoke
+
+python scripts/evaluate_bcr.py \
+  --model outputs/pruned_models/qwen2p5_1p5b_random_mask_10p \
+  --base-model Qwen/Qwen2.5-1.5B \
+  --dense-margins outputs/margins/dense_qwen2p5_1p5b_smoke.jsonl \
+  --data data/processed/hh_rlhf_eval.jsonl \
+  --max-samples 20 \
+  --out outputs/evals/bcr_random_10p_smoke.json \
+  --records-out outputs/evals/bcr_random_10p_smoke_records.jsonl \
+  --dtype bfloat16 \
+  --batch-size 1 \
+  --cache-dir "$HF_HUB_CACHE" \
+  --local-files-only \
+  --run-name m7_bcr_random_10p_smoke
+```
+
+Check metrics:
+
+```bash
+cat outputs/runs/*_m7_bcr_dense_self_smoke/metrics.json
+cat outputs/runs/*_m7_bcr_dense_self_smoke/status.json
+cat outputs/runs/*_m7_bcr_random_10p_smoke/metrics.json
+cat outputs/runs/*_m7_bcr_random_10p_smoke/status.json
+cat outputs/evals/bcr_random_10p_smoke.json
+```
+
+Expected smoke criteria:
+
+- Both `status.json` files have `"status": "success"`.
+- Dense self run has `bcr_at_0=0`, `bcr_at_q25=0`, `bcr_at_q50=0`, and `bcr_at_q75=0`.
+- Random 10% run reports finite numeric metrics, `mask_actual_ratio=0.1`, and non-null `mean_margin_drop`.
+- Coverage values are based on dense margins and therefore match the M4 20-example smoke coverage.
+
 ## Milestone Boundary
 
-M6 has passed after random, magnitude, and activation score generation plus remote smoke verification. Do not run M7 BCR evaluation, Taylor scoring, post-pruning recovery, DPO, or LoRA until explicitly approved.
+Current M7 work stops after BCR evaluation support plus remote smoke verification. Do not run M8 Taylor scoring, post-pruning recovery, DPO, or LoRA until explicitly approved.

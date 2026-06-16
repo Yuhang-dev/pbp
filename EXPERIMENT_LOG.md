@@ -749,3 +749,80 @@ Notes:
 - Executed remotely because the protocol forbids local Qwen model loading and GPU inference.
 - Produced finite scores for all 250880 coupled FFN units and selected 25088 units for a 10% pruning mask.
 - The remote mask comparison printed `random 25088 250880 True`, `magnitude 25088 250880 True`, and `activation 25088 250880 True`; the comparison assertions did not fail, so selected masks differ across methods.
+
+## Run: M7_REMOTE_SMOKE_PENDING_20260617
+
+Date: 2026-06-17
+Milestone: M7
+Purpose: Remote BCR smoke validation for dense self sanity and random 10% masked pruning.
+Command:
+
+```bash
+source /root/.pbp_env
+cd /root/autodl-tmp/preference-boundary-pruning
+git pull
+export OMP_NUM_THREADS=1
+
+python scripts/evaluate_bcr.py \
+  --model Qwen/Qwen2.5-1.5B-Instruct \
+  --base-model Qwen/Qwen2.5-1.5B \
+  --dense-margins outputs/margins/dense_qwen2p5_1p5b_smoke.jsonl \
+  --data data/processed/hh_rlhf_eval.jsonl \
+  --max-samples 20 \
+  --out outputs/evals/bcr_dense_self_smoke.json \
+  --records-out outputs/evals/bcr_dense_self_smoke_records.jsonl \
+  --dtype bfloat16 \
+  --batch-size 1 \
+  --cache-dir "$HF_HUB_CACHE" \
+  --local-files-only \
+  --run-name m7_bcr_dense_self_smoke
+
+python scripts/evaluate_bcr.py \
+  --model outputs/pruned_models/qwen2p5_1p5b_random_mask_10p \
+  --base-model Qwen/Qwen2.5-1.5B \
+  --dense-margins outputs/margins/dense_qwen2p5_1p5b_smoke.jsonl \
+  --data data/processed/hh_rlhf_eval.jsonl \
+  --max-samples 20 \
+  --out outputs/evals/bcr_random_10p_smoke.json \
+  --records-out outputs/evals/bcr_random_10p_smoke_records.jsonl \
+  --dtype bfloat16 \
+  --batch-size 1 \
+  --cache-dir "$HF_HUB_CACHE" \
+  --local-files-only \
+  --run-name m7_bcr_random_10p_smoke
+```
+
+Config file: generated at `outputs/runs/*_m7_bcr_*_smoke/config.yaml` when run remotely
+Git commit: pending
+Model: `Qwen/Qwen2.5-1.5B-Instruct`, plus masked artifact `outputs/pruned_models/qwen2p5_1p5b_random_mask_10p`
+Reference: `Qwen/Qwen2.5-1.5B`
+Dataset: `data/processed/hh_rlhf_eval.jsonl`
+Seed: 42
+GPU: remote
+Runtime: pending
+Status: remote_pending
+
+Inputs:
+- `outputs/margins/dense_qwen2p5_1p5b_smoke.jsonl`
+- `outputs/pruned_models/qwen2p5_1p5b_random_mask_10p/mask_config.json`
+- `outputs/pruned_models/qwen2p5_1p5b_random_mask_10p/masks.json`
+- cached `Qwen/Qwen2.5-1.5B-Instruct`
+- cached `Qwen/Qwen2.5-1.5B`
+
+Outputs:
+- `outputs/evals/bcr_dense_self_smoke.json`
+- `outputs/evals/bcr_dense_self_smoke_records.jsonl`
+- `outputs/evals/bcr_random_10p_smoke.json`
+- `outputs/evals/bcr_random_10p_smoke_records.jsonl`
+- `outputs/runs/*_m7_bcr_dense_self_smoke/`
+- `outputs/runs/*_m7_bcr_random_10p_smoke/`
+
+Metrics:
+
+```json
+{}
+```
+
+Notes:
+- Execute remotely only. These commands load Qwen models and compute response-only logprobs.
+- M7 remains blocked until dense-self BCR is zero and random 10% BCR metrics are finite.

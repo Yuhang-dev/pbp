@@ -51,6 +51,82 @@ def preference_accuracy(deltas: list[float]) -> float:
     return float(np.mean(np.asarray(deltas, dtype=float) > 0.0))
 
 
+def bcr_at_thresholds(
+    records: list[dict[str, Any]],
+    thresholds: dict[str, float],
+    *,
+    dense_key: str = "delta_dense",
+    pruned_key: str = "delta_pruned",
+    boundary: float = 0.0,
+) -> dict[str, float]:
+    if not records:
+        raise ValueError("No margin records provided")
+    out: dict[str, float] = {}
+    for name, tau in thresholds.items():
+        covered = [
+            record
+            for record in records
+            if float(record[dense_key]) > tau
+        ]
+        if not covered:
+            raise ValueError(f"Cannot compute BCR@{name}: no dense margins above threshold")
+        out[f"bcr@{name}"] = float(
+            np.mean([float(record[pruned_key]) <= boundary for record in covered])
+        )
+    return out
+
+
+def bcr_at_thresholds_snake(
+    records: list[dict[str, Any]],
+    thresholds: dict[str, float],
+    *,
+    dense_key: str = "delta_dense",
+    pruned_key: str = "delta_pruned",
+    boundary: float = 0.0,
+) -> dict[str, float]:
+    return {
+        key.replace("bcr@", "bcr_at_"): value
+        for key, value in bcr_at_thresholds(
+            records,
+            thresholds,
+            dense_key=dense_key,
+            pruned_key=pruned_key,
+            boundary=boundary,
+        ).items()
+    }
+
+
+def summarize_bcr(
+    records: list[dict[str, Any]],
+    *,
+    thresholds: dict[str, float] | None = None,
+) -> dict[str, Any]:
+    if not records:
+        raise ValueError("No margin records provided")
+    dense = np.asarray([float(record["delta_dense"]) for record in records], dtype=float)
+    pruned = np.asarray([float(record["delta_pruned"]) for record in records], dtype=float)
+    drops = dense - pruned
+    if thresholds is None:
+        thresholds = positive_margin_thresholds(dense.tolist())
+    summary: dict[str, Any] = {
+        "num_pairs": int(dense.size),
+        "thresholds": thresholds,
+        "preference_accuracy_dense": float(np.mean(dense > 0.0)),
+        "preference_accuracy_pruned": float(np.mean(pruned > 0.0)),
+        "mean_margin_drop": float(np.mean(drops)),
+        "median_margin_drop": float(np.median(drops)),
+        "min_margin_drop": float(np.min(drops)),
+        "max_margin_drop": float(np.max(drops)),
+        "mean_delta_dense": float(np.mean(dense)),
+        "mean_delta_pruned": float(np.mean(pruned)),
+    }
+    summary.update(coverage_at_thresholds(dense.tolist(), thresholds))
+    summary.update(coverage_at_thresholds_snake(dense.tolist(), thresholds))
+    summary.update(bcr_at_thresholds(records, thresholds))
+    summary.update(bcr_at_thresholds_snake(records, thresholds))
+    return summary
+
+
 def histogram(deltas: list[float], bins: int = 30) -> dict[str, Any]:
     if not deltas:
         raise ValueError("No dense margins provided")
