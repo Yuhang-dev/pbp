@@ -195,4 +195,4 @@ Expected smoke criteria:
 
 ## Milestone Boundary
 
-Current M6 work stops after random, magnitude, and activation score generation plus remote smoke verification. Do not run M7 BCR evaluation, Taylor scoring, post-pruning recovery, DPO, or LoRA until explicitly approved.
+M6 has passed after random, magnitude, and activation score generation plus remote smoke verification. Do not run M7 BCR evaluation, Taylor scoring, post-pruning recovery, DPO, or LoRA until explicitly approved.

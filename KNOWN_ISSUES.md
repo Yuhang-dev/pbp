@@ -7,7 +7,6 @@
 - The local environment has no bare `python` command on PATH. Syntax/static checks use `D:\anaconda3\python.exe`.
 - Remote environment emitted `libgomp: Invalid value for environment variable OMP_NUM_THREADS`; M2 completed successfully, but the env var should be fixed before larger runs.
 - Transformers emitted a non-fatal `torch_dtype` deprecation warning; switch to `dtype` in a later cleanup.
-- M6 random/magnitude/activation scoring smoke is remote pending. M6 cannot be marked passed until remote runs confirm finite scores for all coupled FFN units and different selected masks across methods.
 
 ## Resolved
 
@@ -18,3 +17,4 @@
 - M3 real dense/base margin smoke completed remotely in `outputs/runs/20260617_015131_m3_dense_margin_smoke` with 20 examples and finite dense margins.
 - M4 real Coverage@tau report completed remotely in `outputs/runs/20260617_020235_m4_coverage_smoke` with valid coverage metrics and histogram output.
 - M5 real Qwen random mask-pruning smoke completed remotely in `outputs/runs/20260617_021524_m5_random_mask_10p_smoke` with exact 10% global mask ratio and successful generation.
+- M6 random/magnitude/activation scoring smoke completed remotely in `outputs/runs/20260617_023019_m6_random_score_smoke`, `outputs/runs/20260617_023027_m6_magnitude_score_smoke`, and `outputs/runs/20260617_023036_m6_activation_score_smoke` with finite scores for all 250880 coupled FFN units and different selected masks across methods.

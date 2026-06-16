@@ -605,81 +605,147 @@ Notes:
 - The mask artifact reports 28 Qwen MLP groups, each with intermediate size 8960, for 250880 total coupled FFN units.
 - M5 pass criteria were met: model loaded, generation produced 16 new tokens, exact 10% global mask ratio was applied, and no shape errors were reported.
 
-## Run: M6_REMOTE_SMOKE_PENDING_20260617
+## Run: 20260617_023019_m6_random_score_smoke
 
-Date: 2026-06-17
+Date: 2026-06-17 02:30
 Milestone: M6
-Purpose: Remote validation for random, magnitude, and activation coupled FFN importance scoring.
-Command:
-
-```bash
-source /root/.pbp_env
-cd /root/autodl-tmp/preference-boundary-pruning
-git pull
-export OMP_NUM_THREADS=1
-
-python scripts/score_pruning_importance.py \
-  --model Qwen/Qwen2.5-1.5B-Instruct \
-  --method random \
-  --ratio 0.10 \
-  --out outputs/scores/qwen2p5_1p5b_random_smoke.json \
-  --dtype bfloat16 \
-  --cache-dir "$HF_HUB_CACHE" \
-  --local-files-only \
-  --run-name m6_random_score_smoke
-
-python scripts/score_pruning_importance.py \
-  --model Qwen/Qwen2.5-1.5B-Instruct \
-  --method magnitude \
-  --ratio 0.10 \
-  --out outputs/scores/qwen2p5_1p5b_magnitude_smoke.json \
-  --dtype bfloat16 \
-  --cache-dir "$HF_HUB_CACHE" \
-  --local-files-only \
-  --run-name m6_magnitude_score_smoke
-
-python scripts/score_pruning_importance.py \
-  --model Qwen/Qwen2.5-1.5B-Instruct \
-  --data data/processed/hh_rlhf_calib.jsonl \
-  --method activation \
-  --max-samples 50 \
-  --ratio 0.10 \
-  --out outputs/scores/qwen2p5_1p5b_activation_smoke.json \
-  --dtype bfloat16 \
-  --batch-size 1 \
-  --max-length 1024 \
-  --cache-dir "$HF_HUB_CACHE" \
-  --local-files-only \
-  --run-name m6_activation_score_smoke
-```
-
-Config file: generated at `outputs/runs/*_m6_*_score_smoke/config.yaml` when run remotely
-Git commit: pending
+Purpose: Remote random coupled FFN importance scoring smoke test.
+Command: `python scripts/score_pruning_importance.py --model Qwen/Qwen2.5-1.5B-Instruct --method random --ratio 0.10 --out outputs/scores/qwen2p5_1p5b_random_smoke.json --dtype bfloat16 --cache-dir "$HF_HUB_CACHE" --local-files-only --run-name m6_random_score_smoke`
+Config file: `outputs/runs/20260617_023019_m6_random_score_smoke/config.yaml`
+Git commit: `7cbeb5c`
 Model: `Qwen/Qwen2.5-1.5B-Instruct`
-Dataset: `data/processed/hh_rlhf_calib.jsonl` for activation, none for random/magnitude
+Dataset: none
 Seed: 42
 GPU: remote
-Runtime: pending
-Status: remote_pending
+Runtime: 5.791209 seconds
+Status: success
 
 Inputs:
 - cached `Qwen/Qwen2.5-1.5B-Instruct`
-- `data/processed/hh_rlhf_calib.jsonl` for activation
 
 Outputs:
 - `outputs/scores/qwen2p5_1p5b_random_smoke.json`
-- `outputs/scores/qwen2p5_1p5b_magnitude_smoke.json`
-- `outputs/scores/qwen2p5_1p5b_activation_smoke.json`
-- `outputs/runs/*_m6_random_score_smoke/`
-- `outputs/runs/*_m6_magnitude_score_smoke/`
-- `outputs/runs/*_m6_activation_score_smoke/`
+- `outputs/runs/20260617_023019_m6_random_score_smoke/`
 
 Metrics:
 
 ```json
-{}
+{
+  "actual_ratio": 0.1,
+  "max_samples": null,
+  "max_score": 0.9999978438570691,
+  "mean_score": 0.5004347969936106,
+  "method": "random",
+  "min_score": 6.402053533083318e-06,
+  "num_groups": 28,
+  "num_pruned_units": 25088,
+  "num_scores": 250880,
+  "requested_ratio": 0.1,
+  "scores_finite": true,
+  "std_score": 0.2889341039910362,
+  "total_units": 250880
+}
 ```
 
 Notes:
-- Execute remotely only. These commands load Qwen and activation scoring runs model forward passes.
-- M6 remains blocked until remote runs report finite scores for all 250880 coupled FFN units, exact 10% selected masks, and different selected masks across random/magnitude/activation.
+- Executed remotely because the protocol forbids local Qwen model loading.
+- Produced finite scores for all 250880 coupled FFN units and selected 25088 units for a 10% pruning mask.
+
+## Run: 20260617_023027_m6_magnitude_score_smoke
+
+Date: 2026-06-17 02:30
+Milestone: M6
+Purpose: Remote magnitude coupled FFN importance scoring smoke test.
+Command: `python scripts/score_pruning_importance.py --model Qwen/Qwen2.5-1.5B-Instruct --method magnitude --ratio 0.10 --out outputs/scores/qwen2p5_1p5b_magnitude_smoke.json --dtype bfloat16 --cache-dir "$HF_HUB_CACHE" --local-files-only --run-name m6_magnitude_score_smoke`
+Config file: `outputs/runs/20260617_023027_m6_magnitude_score_smoke/config.yaml`
+Git commit: `7cbeb5c`
+Model: `Qwen/Qwen2.5-1.5B-Instruct`
+Dataset: none
+Seed: 42
+GPU: remote
+Runtime: 6.163203 seconds
+Status: success
+
+Inputs:
+- cached `Qwen/Qwen2.5-1.5B-Instruct`
+
+Outputs:
+- `outputs/scores/qwen2p5_1p5b_magnitude_smoke.json`
+- `outputs/runs/20260617_023027_m6_magnitude_score_smoke/`
+
+Metrics:
+
+```json
+{
+  "actual_ratio": 0.1,
+  "max_samples": null,
+  "max_score": 0.5416341423988342,
+  "mean_score": 0.08382441661196192,
+  "method": "magnitude",
+  "min_score": 0.03869392350316048,
+  "num_groups": 28,
+  "num_pruned_units": 25088,
+  "num_scores": 250880,
+  "requested_ratio": 0.1,
+  "scores_finite": true,
+  "std_score": 0.0083053994296318,
+  "total_units": 250880
+}
+```
+
+Notes:
+- Executed remotely because the protocol forbids local Qwen model loading.
+- Produced finite scores for all 250880 coupled FFN units and selected 25088 units for a 10% pruning mask.
+
+## Run: 20260617_023036_m6_activation_score_smoke
+
+Date: 2026-06-17 02:30
+Milestone: M6
+Purpose: Remote activation coupled FFN importance scoring smoke test.
+Command: `python scripts/score_pruning_importance.py --model Qwen/Qwen2.5-1.5B-Instruct --data data/processed/hh_rlhf_calib.jsonl --method activation --max-samples 50 --ratio 0.10 --out outputs/scores/qwen2p5_1p5b_activation_smoke.json --dtype bfloat16 --batch-size 1 --max-length 1024 --cache-dir "$HF_HUB_CACHE" --local-files-only --run-name m6_activation_score_smoke`
+Config file: `outputs/runs/20260617_023036_m6_activation_score_smoke/config.yaml`
+Git commit: `7cbeb5c`
+Model: `Qwen/Qwen2.5-1.5B-Instruct`
+Dataset: `data/processed/hh_rlhf_calib.jsonl`
+Seed: 42
+GPU: remote
+Runtime: 10.205065 seconds
+Status: success
+
+Inputs:
+- cached `Qwen/Qwen2.5-1.5B-Instruct`
+- `data/processed/hh_rlhf_calib.jsonl`
+
+Outputs:
+- `outputs/scores/qwen2p5_1p5b_activation_smoke.json`
+- `outputs/runs/20260617_023036_m6_activation_score_smoke/`
+
+Metrics:
+
+```json
+{
+  "actual_ratio": 0.1,
+  "batch_size": 1,
+  "max_length": 1024,
+  "max_samples": 50,
+  "max_score": 38.02402114868164,
+  "mean_score": 0.12280862410650548,
+  "method": "activation",
+  "min_score": 0.0003806173917837441,
+  "num_calibration_pairs": 50,
+  "num_calibration_texts": 100,
+  "num_groups": 28,
+  "num_pruned_units": 25088,
+  "num_scores": 250880,
+  "requested_ratio": 0.1,
+  "scores_finite": true,
+  "std_score": 0.23592877354164266,
+  "text_mode": "chosen_rejected",
+  "total_units": 250880
+}
+```
+
+Notes:
+- Executed remotely because the protocol forbids local Qwen model loading and GPU inference.
+- Produced finite scores for all 250880 coupled FFN units and selected 25088 units for a 10% pruning mask.
+- The remote mask comparison printed `random 25088 250880 True`, `magnitude 25088 250880 True`, and `activation 25088 250880 True`; the comparison assertions did not fail, so selected masks differ across methods.
