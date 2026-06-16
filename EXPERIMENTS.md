@@ -102,6 +102,97 @@ Expected smoke criteria:
 - `metrics.json` has `"requested_ratio": 0.1`, `"actual_ratio": 0.1`, and `"generation_success": true`.
 - `mask_config.json` reports the Qwen MLP groups and no shape errors occurred.
 
+## M6 Remote Smoke
+
+Run these on the remote machine only, after pulling the latest commit:
+
+```bash
+source /root/.pbp_env
+cd /root/autodl-tmp/preference-boundary-pruning
+git pull
+export OMP_NUM_THREADS=1
+
+python scripts/score_pruning_importance.py \
+  --model Qwen/Qwen2.5-1.5B-Instruct \
+  --method random \
+  --ratio 0.10 \
+  --out outputs/scores/qwen2p5_1p5b_random_smoke.json \
+  --dtype bfloat16 \
+  --cache-dir "$HF_HUB_CACHE" \
+  --local-files-only \
+  --run-name m6_random_score_smoke
+
+python scripts/score_pruning_importance.py \
+  --model Qwen/Qwen2.5-1.5B-Instruct \
+  --method magnitude \
+  --ratio 0.10 \
+  --out outputs/scores/qwen2p5_1p5b_magnitude_smoke.json \
+  --dtype bfloat16 \
+  --cache-dir "$HF_HUB_CACHE" \
+  --local-files-only \
+  --run-name m6_magnitude_score_smoke
+
+python scripts/score_pruning_importance.py \
+  --model Qwen/Qwen2.5-1.5B-Instruct \
+  --data data/processed/hh_rlhf_calib.jsonl \
+  --method activation \
+  --max-samples 50 \
+  --ratio 0.10 \
+  --out outputs/scores/qwen2p5_1p5b_activation_smoke.json \
+  --dtype bfloat16 \
+  --batch-size 1 \
+  --max-length 1024 \
+  --cache-dir "$HF_HUB_CACHE" \
+  --local-files-only \
+  --run-name m6_activation_score_smoke
+```
+
+Check metrics and compare selected masks:
+
+```bash
+cat outputs/runs/*_m6_random_score_smoke/metrics.json
+cat outputs/runs/*_m6_magnitude_score_smoke/metrics.json
+cat outputs/runs/*_m6_activation_score_smoke/metrics.json
+cat outputs/runs/*_m6_random_score_smoke/status.json
+cat outputs/runs/*_m6_magnitude_score_smoke/status.json
+cat outputs/runs/*_m6_activation_score_smoke/status.json
+
+python - <<'PY'
+import json
+
+paths = {
+    "random": "outputs/scores/qwen2p5_1p5b_random_smoke.json",
+    "magnitude": "outputs/scores/qwen2p5_1p5b_magnitude_smoke.json",
+    "activation": "outputs/scores/qwen2p5_1p5b_activation_smoke.json",
+}
+
+def pruned_units(path):
+    payload = json.load(open(path, encoding="utf-8"))
+    out = set()
+    for module_name, mask in payload["masks_by_module"].items():
+        out.update((module_name, idx) for idx, value in enumerate(mask) if value == 0)
+    return out, payload["score_stats"]
+
+sets = {}
+for name, path in paths.items():
+    units, stats = pruned_units(path)
+    print(name, len(units), stats["num_scores"], stats["scores_finite"])
+    sets[name] = units
+
+assert all(pruned for pruned in sets.values())
+assert all(json.load(open(path, encoding="utf-8"))["score_stats"]["scores_finite"] for path in paths.values())
+assert sets["random"] != sets["magnitude"]
+assert sets["random"] != sets["activation"]
+assert sets["magnitude"] != sets["activation"]
+PY
+```
+
+Expected smoke criteria:
+
+- All three `status.json` files have `"status": "success"`.
+- All three `metrics.json` files report `scores_finite=true`, `total_units=250880`, and `actual_ratio=0.1`.
+- The mask comparison script succeeds, confirming selected pruning masks differ across methods.
+
 ## Milestone Boundary
 
-Current M5 work stops after mask-based random pruning support and remote smoke verification. Do not run M6 scoring baselines, Taylor scoring, post-pruning recovery, DPO, or LoRA until explicitly approved.
+Current M6 work stops after random, magnitude, and activation score generation plus remote smoke verification. Do not run M7 BCR evaluation, Taylor scoring, post-pruning recovery, DPO, or LoRA until explicitly approved.

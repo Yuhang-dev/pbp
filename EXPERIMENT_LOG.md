@@ -537,11 +537,11 @@ Metrics:
 Notes:
 - Local-only dry run per remote execution policy.
 - The torch-dependent forward masking unit test is skipped locally because torch is not installed in the local conda environment.
-- Real Qwen mask-pruning smoke remains remote pending.
+- Real Qwen mask-pruning smoke completed remotely in `outputs/runs/20260617_021524_m5_random_mask_10p_smoke`.
 
-## Run: M5_REMOTE_SMOKE_PENDING_20260617
+## Run: 20260617_021524_m5_random_mask_10p_smoke
 
-Date: 2026-06-17
+Date: 2026-06-17 02:15
 Milestone: M5
 Purpose: Remote real Qwen mask-based coupled FFN pruning smoke test.
 Command:
@@ -565,14 +565,14 @@ python scripts/apply_mask_pruning.py \
   --max-new-tokens 16
 ```
 
-Config file: generated at `outputs/runs/*_m5_random_mask_10p_smoke/config.yaml` when run remotely
-Git commit: pending
+Config file: `outputs/runs/20260617_021524_m5_random_mask_10p_smoke/config.yaml`
+Git commit: `8e707a8` inferred from run time before the later protocol-only commit
 Model: `Qwen/Qwen2.5-1.5B-Instruct`
 Dataset: none
 Seed: 42
 GPU: remote
-Runtime: pending
-Status: remote_pending
+Runtime: 6.523119 seconds
+Status: success
 
 Inputs:
 - cached `Qwen/Qwen2.5-1.5B-Instruct`
@@ -581,7 +581,98 @@ Outputs:
 - `outputs/pruned_models/qwen2p5_1p5b_random_mask_10p/mask_config.json`
 - `outputs/pruned_models/qwen2p5_1p5b_random_mask_10p/masks.json`
 - `outputs/pruned_models/qwen2p5_1p5b_random_mask_10p/masks.pt`
-- `outputs/runs/*_m5_random_mask_10p_smoke/`
+- `outputs/runs/20260617_021524_m5_random_mask_10p_smoke/`
+
+Metrics:
+
+```json
+{
+  "actual_ratio": 0.1,
+  "dry_run": false,
+  "generated_new_tokens": 16,
+  "generation_success": true,
+  "method": "random",
+  "num_kept_units": 225792,
+  "num_masked_modules": 28,
+  "num_pruned_units": 25088,
+  "requested_ratio": 0.1,
+  "total_units": 250880
+}
+```
+
+Notes:
+- Executed remotely because the protocol forbids local Qwen model loading, pruning, and generation.
+- The mask artifact reports 28 Qwen MLP groups, each with intermediate size 8960, for 250880 total coupled FFN units.
+- M5 pass criteria were met: model loaded, generation produced 16 new tokens, exact 10% global mask ratio was applied, and no shape errors were reported.
+
+## Run: M6_REMOTE_SMOKE_PENDING_20260617
+
+Date: 2026-06-17
+Milestone: M6
+Purpose: Remote validation for random, magnitude, and activation coupled FFN importance scoring.
+Command:
+
+```bash
+source /root/.pbp_env
+cd /root/autodl-tmp/preference-boundary-pruning
+git pull
+export OMP_NUM_THREADS=1
+
+python scripts/score_pruning_importance.py \
+  --model Qwen/Qwen2.5-1.5B-Instruct \
+  --method random \
+  --ratio 0.10 \
+  --out outputs/scores/qwen2p5_1p5b_random_smoke.json \
+  --dtype bfloat16 \
+  --cache-dir "$HF_HUB_CACHE" \
+  --local-files-only \
+  --run-name m6_random_score_smoke
+
+python scripts/score_pruning_importance.py \
+  --model Qwen/Qwen2.5-1.5B-Instruct \
+  --method magnitude \
+  --ratio 0.10 \
+  --out outputs/scores/qwen2p5_1p5b_magnitude_smoke.json \
+  --dtype bfloat16 \
+  --cache-dir "$HF_HUB_CACHE" \
+  --local-files-only \
+  --run-name m6_magnitude_score_smoke
+
+python scripts/score_pruning_importance.py \
+  --model Qwen/Qwen2.5-1.5B-Instruct \
+  --data data/processed/hh_rlhf_calib.jsonl \
+  --method activation \
+  --max-samples 50 \
+  --ratio 0.10 \
+  --out outputs/scores/qwen2p5_1p5b_activation_smoke.json \
+  --dtype bfloat16 \
+  --batch-size 1 \
+  --max-length 1024 \
+  --cache-dir "$HF_HUB_CACHE" \
+  --local-files-only \
+  --run-name m6_activation_score_smoke
+```
+
+Config file: generated at `outputs/runs/*_m6_*_score_smoke/config.yaml` when run remotely
+Git commit: pending
+Model: `Qwen/Qwen2.5-1.5B-Instruct`
+Dataset: `data/processed/hh_rlhf_calib.jsonl` for activation, none for random/magnitude
+Seed: 42
+GPU: remote
+Runtime: pending
+Status: remote_pending
+
+Inputs:
+- cached `Qwen/Qwen2.5-1.5B-Instruct`
+- `data/processed/hh_rlhf_calib.jsonl` for activation
+
+Outputs:
+- `outputs/scores/qwen2p5_1p5b_random_smoke.json`
+- `outputs/scores/qwen2p5_1p5b_magnitude_smoke.json`
+- `outputs/scores/qwen2p5_1p5b_activation_smoke.json`
+- `outputs/runs/*_m6_random_score_smoke/`
+- `outputs/runs/*_m6_magnitude_score_smoke/`
+- `outputs/runs/*_m6_activation_score_smoke/`
 
 Metrics:
 
@@ -590,5 +681,5 @@ Metrics:
 ```
 
 Notes:
-- Execute remotely only. This command loads Qwen and runs generation.
-- M5 remains blocked until this remote run reports success with `actual_ratio=0.10`, `generation_success=true`, and no shape errors.
+- Execute remotely only. These commands load Qwen and activation scoring runs model forward passes.
+- M6 remains blocked until remote runs report finite scores for all 250880 coupled FFN units, exact 10% selected masks, and different selected masks across random/magnitude/activation.
