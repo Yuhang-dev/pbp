@@ -321,9 +321,9 @@ Notes:
 - Local-only dry run per remote execution policy.
 - Real dense/base margin smoke remains remote pending.
 
-## Run: M3_REMOTE_DENSE_MARGIN_SMOKE_PENDING
+## Run: 20260617_015131_m3_dense_margin_smoke
 
-Date: 2026-06-17 01:49  
+Date: 2026-06-17 01:51  
 Milestone: M3  
 Purpose: Remote real Qwen dense/base margin smoke test on 20 HH-RLHF examples.  
 Command:
@@ -347,15 +347,15 @@ python scripts/compute_dense_margins.py \
   --run-name m3_dense_margin_smoke
 ```
 
-Config file: generated remotely in `outputs/runs/*_m3_dense_margin_smoke/config.yaml`  
-Git commit: pending remote workspace state  
+Config file: `outputs/runs/20260617_015131_m3_dense_margin_smoke/config.yaml`  
+Git commit: `63894cc`  
 Model: `Qwen/Qwen2.5-1.5B-Instruct`  
 Reference: `Qwen/Qwen2.5-1.5B`  
 Dataset: `data/processed/hh_rlhf_eval.jsonl`  
 Seed: 42  
 GPU: remote  
-Runtime: pending  
-Status: remote_pending
+Runtime: 11.792054 seconds  
+Status: success
 
 Inputs:
 - `data/processed/hh_rlhf_eval.jsonl`
@@ -364,13 +364,21 @@ Inputs:
 
 Outputs:
 - `outputs/margins/dense_qwen2p5_1p5b_smoke.jsonl`
-- `outputs/runs/*_m3_dense_margin_smoke/`
+- `outputs/runs/20260617_015131_m3_dense_margin_smoke/`
 
 Metrics:
 
 ```json
-{}
+{
+  "num_examples": 20,
+  "delta_dense_finite": true,
+  "mean_delta_dense": 0.044380287931350404,
+  "min_delta_dense": -0.4868914150299237,
+  "max_delta_dense": 0.8073058234320745,
+  "dry_run": false
+}
 ```
 
 Notes:
-- Not executed locally because the protocol forbids local Qwen model loading and GPU inference.
+- Executed remotely because the protocol forbids local Qwen model loading and GPU inference.
+- Output line count checked: `20 outputs/margins/dense_qwen2p5_1p5b_smoke.jsonl`.
