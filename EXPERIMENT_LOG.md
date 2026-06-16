@@ -175,3 +175,96 @@ Metrics:
 Notes:
 - Executed remotely because the protocol forbids local dataset downloads.
 - Checked line counts: `100 data/processed/hh_rlhf_calib.jsonl`, `200 data/processed/hh_rlhf_eval.jsonl`.
+
+## Run: 20260617_013822_m2_logprob_dry_run
+
+Date: 2026-06-17 01:38  
+Milestone: M2  
+Purpose: Local lightweight dry-run smoke for response-only logprob schema and masking without loading a model.  
+Command: `D:\anaconda3\python.exe scripts\compute_logprobs.py --model dry-run-model --data tests\fixtures\hh_rlhf_processed_fixture.jsonl --out outputs\m2_logprob_dry_run_20260617_0140\logprobs.jsonl --runs-dir outputs\runs --run-name m2_logprob_dry_run --max-samples 2 --seed 42 --dry-run`  
+Config file: `outputs/runs/20260617_013822_m2_logprob_dry_run/config.yaml`  
+Git commit: `12086fa` plus uncommitted M2 working-tree changes  
+Model: dry-run-model  
+Dataset: local fixture `tests/fixtures/hh_rlhf_processed_fixture.jsonl`  
+Seed: 42  
+GPU: not used  
+Runtime: 0.269153 seconds  
+Status: success
+
+Inputs:
+- `tests/fixtures/hh_rlhf_processed_fixture.jsonl`
+- `scripts/compute_logprobs.py`
+- `src/pbp/logprobs.py`
+
+Outputs:
+- `outputs/m2_logprob_dry_run_20260617_0140/logprobs.jsonl`
+- `outputs/runs/20260617_013822_m2_logprob_dry_run/`
+
+Metrics:
+
+```json
+{
+  "num_examples": 2,
+  "num_scored_responses": 4,
+  "min_chosen_response_tokens": 15,
+  "min_rejected_response_tokens": 11,
+  "mean_chosen_response_tokens": 15.5,
+  "mean_rejected_response_tokens": 14.5,
+  "length_normalized_logprobs_finite": true,
+  "dry_run": true
+}
+```
+
+Notes:
+- Local-only dry run per remote execution policy.
+- Real Qwen logprob smoke remains remote pending.
+
+## Run: M2_REMOTE_LOGPROB_SMOKE_PENDING
+
+Date: 2026-06-17 01:38  
+Milestone: M2  
+Purpose: Remote real Qwen response-only logprob smoke test on 5 HH-RLHF examples.  
+Command:
+
+```bash
+source /root/.pbp_env
+cd /root/autodl-tmp/preference-boundary-pruning
+git pull
+
+python scripts/compute_logprobs.py \
+  --model Qwen/Qwen2.5-1.5B-Instruct \
+  --data data/processed/hh_rlhf_eval.jsonl \
+  --max-samples 5 \
+  --out outputs/logprobs/smoke_instruct_5.jsonl \
+  --dtype bfloat16 \
+  --batch-size 1 \
+  --cache-dir "$HF_HUB_CACHE" \
+  --local-files-only \
+  --run-name m2_logprob_smoke
+```
+
+Config file: generated remotely in `outputs/runs/*_m2_logprob_smoke/config.yaml`  
+Git commit: pending remote workspace state  
+Model: `Qwen/Qwen2.5-1.5B-Instruct`  
+Dataset: `data/processed/hh_rlhf_eval.jsonl`  
+Seed: 42  
+GPU: remote  
+Runtime: pending  
+Status: remote_pending
+
+Inputs:
+- `data/processed/hh_rlhf_eval.jsonl`
+- cached `Qwen/Qwen2.5-1.5B-Instruct`
+
+Outputs:
+- `outputs/logprobs/smoke_instruct_5.jsonl`
+- `outputs/runs/*_m2_logprob_smoke/`
+
+Metrics:
+
+```json
+{}
+```
+
+Notes:
+- Not executed locally because the protocol forbids local Qwen model loading and GPU inference.

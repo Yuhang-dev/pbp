@@ -30,6 +30,27 @@ def encode_without_special_tokens(tokenizer: Any, text: str) -> list[int]:
     return [int(x) for x in ids]
 
 
+def _try_encode_with_offsets(tokenizer: Any, text: str) -> tuple[list[int], list[tuple[int, int]]] | None:
+    try:
+        encoded = tokenizer(
+            text,
+            add_special_tokens=False,
+            return_offsets_mapping=True,
+        )
+    except Exception:
+        return None
+
+    input_ids = _extract_input_ids(encoded)
+    offsets = encoded.get("offset_mapping") if isinstance(encoded, dict) else None
+    if input_ids and isinstance(input_ids[0], list):
+        input_ids = input_ids[0]
+    if offsets and isinstance(offsets[0], list):
+        offsets = offsets[0]
+    if offsets is None or len(offsets) != len(input_ids):
+        return None
+    return [int(x) for x in input_ids], [(int(start), int(end)) for start, end in offsets]
+
+
 def build_response_token_mask(
     tokenizer: Any,
     formatted_prompt: str,
@@ -39,6 +60,15 @@ def build_response_token_mask(
     if not response:
         raise ValueError("response must be non-empty")
     full_text = formatted_prompt + response
+
+    encoded_with_offsets = _try_encode_with_offsets(tokenizer, full_text)
+    if encoded_with_offsets is not None:
+        full_ids, offsets = encoded_with_offsets
+        prompt_chars = len(formatted_prompt)
+        mask = [1 if end > prompt_chars else 0 for start, end in offsets]
+        if any(mask):
+            return full_ids, mask
+
     prompt_ids = encode_without_special_tokens(tokenizer, formatted_prompt)
     full_ids = encode_without_special_tokens(tokenizer, full_text)
     prompt_len = len(prompt_ids)
@@ -50,6 +80,11 @@ def build_response_token_mask(
     for idx in range(prompt_len, len(full_ids)):
         mask[idx] = 1
     return full_ids, mask
+
+
+def response_logprob_token_count(response_mask: list[int]) -> int:
+    """Count response labels after the causal next-token shift."""
+    return int(sum(response_mask[1:]))
 
 
 def _pad_batch(

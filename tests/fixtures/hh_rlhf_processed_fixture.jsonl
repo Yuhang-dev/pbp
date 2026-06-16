@@ -1,0 +1,2 @@
+{"id":"fixture-00000000","prompt":"\n\nHuman: hello\n\nAssistant:","chosen":" helpful answer","rejected":" bad answer","source":"hh-rlhf"}
+{"id":"fixture-00000001","prompt":"\n\nHuman: summarize this\n\nAssistant:","chosen":" concise summary","rejected":" incorrect summary","source":"hh-rlhf"}

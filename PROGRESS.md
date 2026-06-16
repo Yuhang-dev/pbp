@@ -1,9 +1,9 @@
 # PROGRESS
 
 ## Current Milestone
-Milestone: M1
-Status: passed
-Last updated: 2026-06-17 01:33
+Milestone: M2
+Status: blocked
+Last updated: 2026-06-17 01:38
 
 ## Completed Milestones
 - [x] M0: Repository skeleton
@@ -18,11 +18,11 @@ Last updated: 2026-06-17 01:33
 - [ ] M9: pilot experiment table
 
 ## Current Blockers
-- None for M1.
+- Remote Qwen logprob smoke is pending. Local dry-run masking/schema validation passed, but real model logprob computation must run on the remote machine.
 
 ## Execution Boundary
 - Local machine: lightweight tests, compile checks, fixture tests, import checks, run-directory validation only.
 - Remote machine: HH-RLHF downloads, Qwen model loading, GPU inference, pruning, and evaluation experiments.
 
 ## Next Action
-Stop and wait for explicit approval to begin M2: response-only logprob computation.
+Run the M2 remote smoke command on the remote machine and provide the run output/logs. After remote success, mark M2 passed.
