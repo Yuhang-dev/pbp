@@ -1199,3 +1199,45 @@ Notes:
 - Under the configured matched-utility thresholds (`max_ppl_relative_delta=0.10`, `max_accuracy_drop=0.05`), all 20% pruned models have `matched_utility_flag=false`. Therefore M10A does not support a strong claim that boundary pruning has lower BCR under similar utility.
 - Compared with activation, `boundary_taylor_weighted` preserved much more utility on this small subset (`ppl=48.11` vs `129.04`, `arc_c=0.69` vs `0.20`, `hellaswag=0.45` vs `0.41`) while also reducing BCR@q25.
 - Stale failed M10A run directories from the earlier bare-`wikitext` issue remain in `outputs/runs/`; final success is established by the five successful general runs and the successful summarization run.
+
+## Run: M10B_REMOTE_PLAN_20260617_2055
+
+Date: 2026-06-17 20:55 Asia/Shanghai
+Milestone: M10B
+Purpose: Prepare remote-only larger matched-utility evaluation for dense plus all M9 10%/20% pruned models, stale M10A status cleanup, and layer-wise mask distribution reporting.
+Command: See `EXPERIMENTS.md` section `M10B Larger Matched Utility and Mask Distribution`.
+Config file: none
+Git commit: pending
+Model: dense `Qwen/Qwen2.5-1.5B-Instruct`; masked M9 10% and 20% models for `random`, `magnitude`, `activation`, and `boundary_taylor_weighted`
+Dataset: `Salesforce/wikitext` WikiText-2 raw test subset, ARC-Challenge validation subset, HellaSwag validation subset
+Seed: 42
+GPU: remote `1 x NVIDIA RTX PRO 6000 96GB`
+Runtime: not run yet
+Status: pending remote execution
+
+Planned outputs:
+- `outputs/tables/m10b_stale_status_cleanup.json`
+- `outputs/evals/general_m10b_dense.json`
+- `outputs/evals/general_m10b_{random,magnitude,activation,boundary_taylor_weighted}_{10p,20p}.json`
+- `outputs/tables/m10b_mask_distribution.csv`
+- `outputs/tables/m10b_matched_utility_all.csv`
+- `outputs/tables/m10b_matched_utility_summary.json`
+
+Metrics:
+
+```json
+{
+  "expected_general_json_files": 9,
+  "methods": ["dense", "random", "magnitude", "activation", "boundary_taylor_weighted"],
+  "ratios": [0.0, 0.1, 0.2],
+  "ppl_samples": 500,
+  "arc_challenge_samples_requested": 500,
+  "hellaswag_samples": 1000,
+  "remote_validation": "pending"
+}
+```
+
+Notes:
+- M10B is explicitly limited to Qwen2.5-1.5B M9 artifacts.
+- M10B does not include 3B/7B scaling, DPO, LoRA, post-pruning recovery, or a research-question change.
+- Local validation for this plan is limited to syntax/static checks.

@@ -15,6 +15,7 @@ This repository currently supports:
 - Pilot result-table summarization.
 - Lightweight general-utility evaluation for M10A matched-utility checks.
 - M10A matched-utility table summarization.
+- M10B stale run-status cleanup, layer-wise mask distribution reporting, and all-ratio matched-utility summarization.
 - Unit tests for response masking and margin/coverage computation.
 
 Physical dimension-changing pruning is not implemented yet. The current MVP uses masked structured pruning.
@@ -111,3 +112,16 @@ outputs/tables/m10a_matched_utility_20p.csv
 ```
 
 M10A completed on the remote `1 x NVIDIA RTX PRO 6000 96GB` setup. At 20% pruning, `boundary_taylor_weighted` reduced `BCR@q25` versus activation, but all 20% pruned models failed the configured matched-utility thresholds.
+
+## M10B Larger Matched Utility
+
+M10B is remote-only and limited to dense Qwen2.5-1.5B-Instruct plus all M9 10% and 20% masked pruned models. The command block is in `EXPERIMENTS.md` under `M10B Larger Matched Utility and Mask Distribution`.
+
+Expected outputs:
+
+```text
+outputs/tables/m10b_stale_status_cleanup.json
+outputs/tables/m10b_mask_distribution.csv
+outputs/tables/m10b_matched_utility_all.csv
+outputs/tables/m10b_matched_utility_summary.json
+```

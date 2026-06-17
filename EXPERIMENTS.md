@@ -635,8 +635,159 @@ Expected M10A criteria:
 - Every model reports `loaded_successfully=true` and `general_utility_finite=true`.
 - Stop after this table and inspect whether `boundary_taylor_weighted` has lower `bcr@q25` than activation under a similar utility flag.
 
+## M10B Larger Matched Utility and Mask Distribution
+
+M10B is remote-only. It expands the general-utility check to dense plus all eight M9 pruned models at 10% and 20%, and adds layer-wise mask distribution analysis. Do not run 3B/7B, DPO, LoRA, post-pruning recovery, or change the research question.
+
+First cache the datasets needed for larger evaluation:
+
+```bash
+source /root/.pbp_env
+cd /root/autodl-tmp/preference-boundary-pruning
+git pull
+unset OMP_NUM_THREADS
+export OMP_NUM_THREADS=1
+unset HF_DATASETS_OFFLINE
+export TOKENIZERS_PARALLELISM=false
+export PYTORCH_CUDA_ALLOC_CONF=expandable_segments:True
+
+python - <<'PY'
+import os
+from datasets import load_dataset
+
+cache_dir = os.environ.get("HF_DATASETS_CACHE")
+kwargs = {"cache_dir": cache_dir} if cache_dir else {}
+
+jobs = [
+    ("Salesforce/wikitext", "wikitext-2-raw-v1", "test"),
+    ("allenai/ai2_arc", "ARC-Challenge", "validation"),
+    ("Rowan/hellaswag", None, "validation"),
+]
+
+for name, config, split in jobs:
+    if config is None:
+        dataset = load_dataset(name, split=split, **kwargs)
+    else:
+        dataset = load_dataset(name, config, split=split, **kwargs)
+    print(name, config, split, len(dataset))
+PY
+```
+
+Clean stale M10A `status.json` files that were left as `running` by failed or aborted attempts. This does not delete any run directories:
+
+```bash
+export HF_DATASETS_OFFLINE=1
+
+python scripts/clean_run_status.py \
+  --runs-dir outputs/runs \
+  --runs-dir-name-contains m10a \
+  --older-than-minutes 10 \
+  --to-status interrupted \
+  --note "Stale M10A attempt superseded by final successful M10A/M10B workflow; marked interrupted, not deleted." \
+  --out outputs/tables/m10b_stale_status_cleanup.json \
+  --run-name m10b_clean_stale_statuses
+```
+
+Run larger general-utility evaluation. PPL uses 500 WikiText examples, ARC-Challenge requests 500 examples and therefore uses full validation if fewer are available, and HellaSwag uses 1000 validation examples:
+
+```bash
+INSTRUCT_MODEL="Qwen/Qwen2.5-1.5B-Instruct"
+
+COMMON_GENERAL_ARGS=(
+  --dtype bfloat16
+  --batch-size 2
+  --max-length 2048
+  --ppl-samples 500
+  --arc-samples 500
+  --hellaswag-samples 1000
+  --cache-dir "$HF_HUB_CACHE"
+  --dataset-cache-dir "$HF_DATASETS_CACHE"
+  --local-files-only
+  --datasets-local-files-only
+)
+
+python scripts/evaluate_general.py \
+  --model "$INSTRUCT_MODEL" \
+  --method dense \
+  --ratio 0.0 \
+  --out outputs/evals/general_m10b_dense.json \
+  "${COMMON_GENERAL_ARGS[@]}" \
+  --run-name m10b_general_dense
+
+METHODS=(random magnitude activation boundary_taylor_weighted)
+RATIOS=("0.10:10p" "0.20:20p")
+
+for pair in "${RATIOS[@]}"; do
+  label="${pair##*:}"
+  for method in "${METHODS[@]}"; do
+    python scripts/evaluate_general.py \
+      --model "outputs/pruned_models/qwen2p5_1p5b_${method}_mask_${label}_m9" \
+      --out "outputs/evals/general_m10b_${method}_${label}.json" \
+      "${COMMON_GENERAL_ARGS[@]}" \
+      --run-name "m10b_general_${method}_${label}"
+  done
+done
+```
+
+Produce layer-wise mask distribution:
+
+```bash
+python scripts/report_mask_distribution.py \
+  --mask-dirs \
+    outputs/pruned_models/qwen2p5_1p5b_random_mask_10p_m9 \
+    outputs/pruned_models/qwen2p5_1p5b_random_mask_20p_m9 \
+    outputs/pruned_models/qwen2p5_1p5b_magnitude_mask_10p_m9 \
+    outputs/pruned_models/qwen2p5_1p5b_magnitude_mask_20p_m9 \
+    outputs/pruned_models/qwen2p5_1p5b_activation_mask_10p_m9 \
+    outputs/pruned_models/qwen2p5_1p5b_activation_mask_20p_m9 \
+    outputs/pruned_models/qwen2p5_1p5b_boundary_taylor_weighted_mask_10p_m9 \
+    outputs/pruned_models/qwen2p5_1p5b_boundary_taylor_weighted_mask_20p_m9 \
+  --out outputs/tables/m10b_mask_distribution.csv \
+  --summary-out outputs/tables/m10b_mask_distribution.json \
+  --run-name m10b_mask_distribution
+```
+
+Summarize M10B matched utility:
+
+```bash
+python scripts/summarize_m10b_matched_utility.py \
+  --general-inputs \
+    outputs/evals/general_m10b_dense.json \
+    outputs/evals/general_m10b_random_10p.json \
+    outputs/evals/general_m10b_random_20p.json \
+    outputs/evals/general_m10b_magnitude_10p.json \
+    outputs/evals/general_m10b_magnitude_20p.json \
+    outputs/evals/general_m10b_activation_10p.json \
+    outputs/evals/general_m10b_activation_20p.json \
+    outputs/evals/general_m10b_boundary_taylor_weighted_10p.json \
+    outputs/evals/general_m10b_boundary_taylor_weighted_20p.json \
+  --bcr-table outputs/tables/m9_qwen2p5_1p5b_pilot_1k.csv \
+  --out outputs/tables/m10b_matched_utility_all.csv \
+  --summary-out outputs/tables/m10b_matched_utility_summary.json \
+  --run-name m10b_summarize_matched_utility_all
+```
+
+Check M10B outputs:
+
+```bash
+cat outputs/tables/m10b_mask_distribution.csv
+cat outputs/tables/m10b_matched_utility_all.csv
+cat outputs/tables/m10b_matched_utility_summary.json
+cat outputs/runs/*_m10b_summarize_matched_utility_all/status.json
+cat outputs/runs/*_m10b_summarize_matched_utility_all/metrics.json
+```
+
+Expected M10B criteria:
+
+- `outputs/tables/m10b_mask_distribution.csv` has columns `method`, `ratio`, `layer`, `total_units`, `pruned_units`, and `pruned_ratio`.
+- `outputs/tables/m10b_matched_utility_all.csv` has dense plus 8 pruned rows and the required matched-utility columns.
+- `outputs/tables/m10b_matched_utility_summary.json` explicitly answers whether any 10% or 20% pruned model is matched utility, identifies the lowest `BCR@q25` among matched-utility models when one exists, and says `20% is not a mild regime under current masking.` if no 20% model is matched.
+- Stop after M10B.
+
 ## Milestone Boundary
 
 M9 has passed after the remote Qwen2.5-1.5B 1k pilot table completed with 8 rows and all 8 BCR inputs summarized successfully on `1 x NVIDIA RTX PRO 6000 96GB`.
 
-M10A has passed after the remote 20% matched-utility table completed with 5 rows. `boundary_taylor_weighted` had lower `BCR@q25` than activation at 20%, but all 20% pruned models had `matched_utility_flag=false` under the configured thresholds. Do not run post-pruning recovery, DPO, LoRA, 3B/7B scaling, 10% general-utility work, M10B, or M11 until explicitly approved.
+M10A has passed after the remote 20% matched-utility table completed with 5 rows. `boundary_taylor_weighted` had lower `BCR@q25` than activation at 20%, but all 20% pruned models had `matched_utility_flag=false` under the configured thresholds.
+
+M10B is approved and limited to the section above. Do not run post-pruning recovery, DPO, LoRA, 3B/7B scaling, M11, or any work beyond M10B until explicitly approved.

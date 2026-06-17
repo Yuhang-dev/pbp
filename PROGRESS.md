@@ -1,9 +1,9 @@
 # PROGRESS
 
 ## Current Milestone
-Milestone: M10A
-Status: passed
-Last updated: 2026-06-17 20:25
+Milestone: M10B
+Status: implementation ready; remote validation pending
+Last updated: 2026-06-17 20:55
 
 ## Completed Milestones
 - [x] M0: Repository skeleton
@@ -19,11 +19,11 @@ Last updated: 2026-06-17 20:25
 - [x] M10A: lightweight matched-utility check for 20% M9 pruned models
 
 ## Current Blockers
-- None for M10A.
+- M10B has not yet been run on the remote GPU. Local validation remains limited to syntax/static checks.
 
 ## Execution Boundary
 - Local machine: syntax/static checks only, such as `compileall`, `py_compile`, file-existence checks, and command/config drafting.
 - Remote machine: all functional validation, tests, smoke runs, HH-RLHF downloads, Qwen model loading, GPU inference, pruning, and evaluation experiments.
 
 ## Next Action
-Stop and wait for explicit approval before running 10% general-utility checks, 3B/7B scaling, post-pruning recovery, DPO, LoRA, or any M10B/M11 work.
+Run M10B only on the remote GPU: clean stale M10A run statuses, evaluate larger general utility for dense plus all M9 10%/20% pruned models, report layer-wise mask distribution, and summarize matched utility. Do not run 3B/7B, DPO, LoRA, post-pruning recovery, M11, or any work beyond M10B.

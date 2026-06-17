@@ -197,7 +197,7 @@ def config_for_run(args: argparse.Namespace, model_load_id: str | None = None) -
         },
         "max_length": args.max_length,
         "output_path": args.out,
-        "notes": "M10A lightweight matched-utility evaluation",
+        "notes": "General-utility evaluation for matched-utility checks",
         "local_files_only": args.local_files_only,
         "datasets_local_files_only": args.datasets_local_files_only,
     }
