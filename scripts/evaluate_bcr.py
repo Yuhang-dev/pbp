@@ -314,6 +314,10 @@ def compute_records(args: argparse.Namespace, logger: RunLogger) -> tuple[list[d
         "mask_method": mask_config.get("method") if mask_config else None,
         "selection_scope": mask_config.get("selection_scope") if mask_config else None,
         "protection": mask_config.get("protection") if mask_config else None,
+        "alpha": mask_config.get("alpha") if mask_config else None,
+        "utility_method": mask_config.get("utility_method") if mask_config else None,
+        "boundary_method": mask_config.get("boundary_method") if mask_config else None,
+        "hybrid_normalization_scope": mask_config.get("hybrid_normalization_scope") if mask_config else None,
         "requested_ratio": mask_config.get("requested_ratio", mask_config.get("ratio")) if mask_config else None,
         "actual_global_ratio": stats.get("actual_global_ratio") if stats else None,
         "actual_unprotected_ratio": stats.get("actual_unprotected_ratio") if stats else None,
@@ -381,6 +385,7 @@ def main() -> None:
             "preference_accuracy_dense": float(summary["preference_accuracy_dense"]),
             "preference_accuracy_pruned": float(summary["preference_accuracy_pruned"]),
             "mean_margin_drop": float(summary["mean_margin_drop"]),
+            "alpha": method_info.get("alpha"),
             "metrics_finite": finite_metrics(summary),
         }
         if method_info["mask_stats"] is not None:

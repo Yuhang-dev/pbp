@@ -17,6 +17,7 @@ This repository currently supports:
 - M10A matched-utility table summarization.
 - M10B stale run-status cleanup, layer-wise mask distribution reporting, and all-ratio matched-utility summarization.
 - M11A layer-wise/protected layer-wise pruning selection and utility/BCR summarization.
+- M12 hybrid utility-boundary score composition and alpha-sweep summarization.
 - Unit tests for response masking and margin/coverage computation.
 
 Physical dimension-changing pruning is not implemented yet. The current MVP uses masked structured pruning.
@@ -117,6 +118,21 @@ M10A completed on the remote `1 x NVIDIA RTX PRO 6000 96GB` setup. At 20% prunin
 ## M10B Larger Matched Utility
 
 M10B is remote-only and limited to dense Qwen2.5-1.5B-Instruct plus all M9 10% and 20% masked pruned models. The command block is in `EXPERIMENTS.md` under `M10B Larger Matched Utility and Mask Distribution`.
+
+## M12 Hybrid Utility-Boundary Pruning
+
+M12 is remote-only and keeps Qwen2.5-1.5B-Instruct as the only model. Hybrid score artifacts are composed from existing utility and boundary score artifacts:
+
+```text
+I_hybrid(g) = rank_norm(I_utility(g)) + alpha * rank_norm(I_boundary(g))
+```
+
+Expected summary outputs:
+
+```text
+outputs/tables/m12_alpha_sweep.csv
+outputs/tables/m12_hybrid_summary.json
+```
 
 Expected outputs:
 

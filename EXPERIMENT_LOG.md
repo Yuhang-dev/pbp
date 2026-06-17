@@ -1366,3 +1366,56 @@ Notes:
 - M11A implements `--selection-scope layerwise`, `--protect-first-n-layers`, and `--protect-last-n-layers`.
 - `general_taylor` is included as the utility-preserving Taylor baseline and now records truncation metadata.
 - M11A does not include 3B/7B scaling, PAT, Wanda, DPO/LoRA recovery, safety datasets, UltraFeedback, or M11B.
+
+## Run: M11A_PRIORITY1_RESULT_20260617
+
+Date: 2026-06-17
+Milestone: M11A
+Purpose: Test whether layerwise pruning avoids early-layer collapse and recovers a matched-utility pruning regime.
+Model: `Qwen/Qwen2.5-1.5B-Instruct`
+GPU: remote `1 x NVIDIA RTX PRO 6000 96GB`
+Status: success
+
+Outputs:
+- `outputs/tables/m11a_layerwise_utility_bcr.csv`
+- `outputs/tables/m11a_mask_distribution.csv`
+- `outputs/tables/m11a_summary.json`
+
+Key results:
+- Layerwise selection avoided early-layer pruning collapse.
+- Matched utility was found only at 2% layerwise pruning.
+- Among matched settings, activation 2% had the lowest `BCR@q25` (`0.00751879699248`).
+- `boundary_taylor_weighted` 2% was matched but did not beat activation 2% on `BCR@q25`.
+- 5% remained not matched under the current layerwise baselines.
+
+## Run: M12_REMOTE_PLAN_20260617
+
+Date: 2026-06-17
+Milestone: M12
+Purpose: Test hybrid utility-boundary pruning before any 3B/7B scaling or recovery methods.
+Command: See `EXPERIMENTS.md` section `M12 Hybrid Boundary-Utility Pruning`.
+Model: `Qwen/Qwen2.5-1.5B-Instruct`
+Dataset: M9 HH-RLHF calibration/eval split plus `Salesforce/wikitext`, ARC-Challenge, and HellaSwag utility subsets
+GPU: remote `1 x NVIDIA RTX PRO 6000 96GB`
+Status: pending remote run
+
+Hybrid formula:
+
+```text
+I_hybrid(g) = rank_norm(I_utility(g)) + alpha * rank_norm(I_boundary(g))
+```
+
+Planned methods:
+- `activation`
+- `general_taylor`
+- `boundary_taylor_weighted`
+- `activation_boundary`
+- `general_taylor_boundary`
+
+Planned ratios: `0.02`, `0.03`, `0.05`
+Planned alpha values: `0.25`, `0.5`, `1.0`, `2.0`
+
+Decision rule:
+- A hybrid setting must be `matched=true`.
+- It must reduce `BCR@q25` below the corresponding utility-only baseline at the same ratio and BCR sample size.
+- Matched candidates and their corresponding baselines receive 5k HH-RLHF BCR evaluation.

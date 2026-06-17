@@ -164,6 +164,19 @@ def load_score_artifact_mask_plan(
         protect_first_n_layers=selected_protect_first,
         protect_last_n_layers=selected_protect_last,
     )
+    method_info = payload.get("method_info", {})
+    for key in (
+        "alpha",
+        "utility_method",
+        "boundary_method",
+        "hybrid_normalization_scope",
+        "utility_scores",
+        "boundary_scores",
+    ):
+        if key in payload:
+            mask_plan[key] = payload[key]
+        elif key in method_info:
+            mask_plan[key] = method_info[key]
     return model_id, method, selected_ratio, groups, mask_plan
 
 

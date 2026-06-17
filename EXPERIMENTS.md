@@ -1094,6 +1094,278 @@ cat outputs/runs/*_m11a_summarize_priority1/metrics.json
 
 Stop after Priority 1 if it finds a clear matched-utility regime. Only run protected-layer Priority 2/3 after inspecting `outputs/tables/m11a_summary.json` and deciding that layerwise without protection is insufficient.
 
+## M12 Hybrid Boundary-Utility Pruning
+
+M12 is remote-only and uses Qwen2.5-1.5B-Instruct only. Do not run 3B/7B, DPO/LoRA recovery, PAT, Wanda, safety datasets, UltraFeedback, or M13.
+
+M12 tests hybrid pruning scores:
+
+```text
+I_hybrid(g) = rank_norm(I_utility(g)) + alpha * rank_norm(I_boundary(g))
+```
+
+where `I_utility` is either `activation` or `general_taylor`, `I_boundary` is `boundary_taylor_weighted`, and normalization is layerwise rank percentile normalization. Pruning still removes the lowest hybrid-score units.
+
+Run the 1k alpha sweep first:
+
+```bash
+source /etc/network_turbo || true
+conda activate pbp
+cd ~/autodl-tmp/preference-boundary-pruning
+git pull origin main
+
+export OMP_NUM_THREADS=1
+export MKL_NUM_THREADS=1
+export OPENBLAS_NUM_THREADS=1
+export NUMEXPR_NUM_THREADS=1
+export TOKENIZERS_PARALLELISM=false
+export PYTORCH_CUDA_ALLOC_CONF=expandable_segments:True
+
+INSTRUCT_MODEL="Qwen/Qwen2.5-1.5B-Instruct"
+BASE_LOGPROBS="outputs/logprobs/base_qwen2p5_1p5b_m9_eval_1k.jsonl"
+DENSE_MARGINS_EVAL="outputs/margins/dense_qwen2p5_1p5b_m9_eval_1k.jsonl"
+DATA_DIR="data/processed/m9_pilot"
+
+mkdir -p outputs/evals outputs/scores outputs/pruned_models outputs/tables outputs/logs
+
+if [ ! -f outputs/evals/general_m12_dense.json ]; then
+  python scripts/evaluate_general.py \
+    --model "$INSTRUCT_MODEL" \
+    --method dense \
+    --ratio 0.0 \
+    --out outputs/evals/general_m12_dense.json \
+    --dtype bfloat16 \
+    --batch-size 2 \
+    --max-length 2048 \
+    --ppl-samples 500 \
+    --arc-samples 500 \
+    --hellaswag-samples 1000 \
+    --cache-dir "$HF_HUB_CACHE" \
+    --dataset-cache-dir "$HF_DATASETS_CACHE" \
+    --local-files-only \
+    --datasets-local-files-only \
+    --run-name m12_general_dense
+fi
+
+declare -A BASE_SCORE_BY_METHOD
+BASE_SCORE_BY_METHOD[activation]="outputs/scores/qwen2p5_1p5b_activation_m11a_layerwise.json"
+BASE_SCORE_BY_METHOD[general_taylor]="outputs/scores/qwen2p5_1p5b_general_taylor_m11a_layerwise.json"
+BASE_SCORE_BY_METHOD[boundary_taylor_weighted]="outputs/scores/qwen2p5_1p5b_boundary_taylor_weighted_m11a_layerwise.json"
+
+BASE_METHODS=(activation general_taylor boundary_taylor_weighted)
+HYBRID_UTILITIES=(activation general_taylor)
+ALPHAS=("0.25:0p25" "0.5:0p5" "1.0:1p0" "2.0:2p0")
+RATIOS=("0.02:2p" "0.03:3p" "0.05:5p")
+
+declare -A SCORE_BY_METHOD_ALPHA
+
+for utility in "${HYBRID_UTILITIES[@]}"; do
+  for alpha_pair in "${ALPHAS[@]}"; do
+    alpha="${alpha_pair%%:*}"
+    alpha_label="${alpha_pair##*:}"
+    method="${utility}_boundary"
+    score_out="outputs/scores/qwen2p5_1p5b_${method}_alpha${alpha_label}_m12_layerwise.json"
+    if [ ! -f "$score_out" ]; then
+      python scripts/compose_hybrid_scores.py \
+        --utility-scores "${BASE_SCORE_BY_METHOD[$utility]}" \
+        --boundary-scores "${BASE_SCORE_BY_METHOD[boundary_taylor_weighted]}" \
+        --method "$method" \
+        --alpha "$alpha" \
+        --ratio 0.02 \
+        --selection-scope layerwise \
+        --normalization-scope layerwise \
+        --out "$score_out" \
+        --run-name "m12_compose_${method}_alpha${alpha_label}"
+    fi
+    SCORE_BY_METHOD_ALPHA["${method}:${alpha_label}"]="$score_out"
+  done
+done
+
+GENERAL_INPUTS=(outputs/evals/general_m12_dense.json)
+BCR_INPUTS=()
+
+run_model_eval_1k() {
+  method="$1"
+  ratio="$2"
+  label="$3"
+  score_path="$4"
+  alpha_label="${5:-}"
+
+  if [ -n "$alpha_label" ]; then
+    suffix="${method}_alpha${alpha_label}_layerwise_${label}"
+  else
+    suffix="${method}_layerwise_${label}"
+  fi
+  out_dir="outputs/pruned_models/qwen2p5_1p5b_${suffix}_m12"
+  general_out="outputs/evals/general_m12_${suffix}.json"
+  bcr_out="outputs/evals/bcr_m12_${suffix}.json"
+
+  if [ ! -d "$out_dir" ]; then
+    python scripts/apply_mask_pruning.py \
+      --scores "$score_path" \
+      --ratio "$ratio" \
+      --selection-scope layerwise \
+      --out "$out_dir" \
+      --run-name "m12_apply_${suffix}"
+  fi
+
+  if [ ! -f "$general_out" ]; then
+    python scripts/evaluate_general.py \
+      --model "$out_dir" \
+      --out "$general_out" \
+      --dtype bfloat16 \
+      --batch-size 2 \
+      --max-length 2048 \
+      --ppl-samples 500 \
+      --arc-samples 500 \
+      --hellaswag-samples 1000 \
+      --cache-dir "$HF_HUB_CACHE" \
+      --dataset-cache-dir "$HF_DATASETS_CACHE" \
+      --local-files-only \
+      --datasets-local-files-only \
+      --run-name "m12_general_${suffix}"
+  fi
+
+  if [ ! -f "$bcr_out" ]; then
+    python scripts/evaluate_bcr.py \
+      --model "$out_dir" \
+      --base-logprobs "$BASE_LOGPROBS" \
+      --dense-margins "$DENSE_MARGINS_EVAL" \
+      --data "$DATA_DIR/hh_rlhf_eval.jsonl" \
+      --max-samples 1000 \
+      --out "$bcr_out" \
+      --records-out "outputs/evals/bcr_m12_${suffix}_records.jsonl" \
+      --dtype bfloat16 \
+      --batch-size 1 \
+      --cache-dir "$HF_HUB_CACHE" \
+      --local-files-only \
+      --run-name "m12_bcr_${suffix}_1k"
+  fi
+
+  GENERAL_INPUTS+=("$general_out")
+  BCR_INPUTS+=("$bcr_out")
+}
+
+for method in "${BASE_METHODS[@]}"; do
+  for pair in "${RATIOS[@]}"; do
+    ratio="${pair%%:*}"
+    label="${pair##*:}"
+    run_model_eval_1k "$method" "$ratio" "$label" "${BASE_SCORE_BY_METHOD[$method]}"
+  done
+done
+
+for utility in "${HYBRID_UTILITIES[@]}"; do
+  method="${utility}_boundary"
+  for alpha_pair in "${ALPHAS[@]}"; do
+    alpha_label="${alpha_pair##*:}"
+    score_path="${SCORE_BY_METHOD_ALPHA[${method}:${alpha_label}]}"
+    for pair in "${RATIOS[@]}"; do
+      ratio="${pair%%:*}"
+      label="${pair##*:}"
+      run_model_eval_1k "$method" "$ratio" "$label" "$score_path" "$alpha_label"
+    done
+  done
+done
+
+python scripts/summarize_m12_hybrid.py \
+  --general-inputs "${GENERAL_INPUTS[@]}" \
+  --bcr-inputs "${BCR_INPUTS[@]}" \
+  --out outputs/tables/m12_alpha_sweep.csv \
+  --summary-out outputs/tables/m12_hybrid_summary.json \
+  --run-name m12_summarize_alpha_sweep_1k \
+  --overwrite
+
+cat outputs/tables/m12_alpha_sweep.csv
+cat outputs/tables/m12_hybrid_summary.json
+```
+
+Then run 5k BCR only for matched candidates and their corresponding utility baselines:
+
+```bash
+python - <<'PY'
+import csv
+from pathlib import Path
+
+def ratio_label(value):
+    return f"{int(round(float(value) * 100))}p"
+
+def alpha_label(value):
+    if not value:
+        return ""
+    mapping = {0.25: "0p25", 0.5: "0p5", 1.0: "1p0", 2.0: "2p0"}
+    return mapping.get(round(float(value), 2), str(value).replace(".", "p"))
+
+rows = list(csv.DictReader(open("outputs/tables/m12_alpha_sweep.csv", newline="")))
+targets = set()
+for row in rows:
+    if row["matched"] != "true" or row["method"] == "dense":
+        continue
+    targets.add((row["method"], row["ratio"], row["alpha"]))
+    if row["method"] in {"activation_boundary", "general_taylor_boundary"}:
+        targets.add((row["utility_method"], row["ratio"], ""))
+
+out = Path("outputs/tables/m12_5k_bcr_targets.tsv")
+with out.open("w", encoding="utf-8") as f:
+    f.write("method\tratio\talpha\tmodel_dir\tbcr_out\trecords_out\n")
+    for method, ratio, alpha in sorted(targets):
+        rlabel = ratio_label(ratio)
+        alabel = alpha_label(alpha)
+        if alpha:
+            suffix = f"{method}_alpha{alabel}_layerwise_{rlabel}"
+        else:
+            suffix = f"{method}_layerwise_{rlabel}"
+        f.write(
+            f"{method}\t{ratio}\t{alpha}\t"
+            f"outputs/pruned_models/qwen2p5_1p5b_{suffix}_m12\t"
+            f"outputs/evals/bcr_m12_5k_{suffix}.json\t"
+            f"outputs/evals/bcr_m12_5k_{suffix}_records.jsonl\n"
+        )
+print(out)
+PY
+
+tail -n +2 outputs/tables/m12_5k_bcr_targets.tsv | while IFS=$'\t' read -r method ratio alpha model_dir bcr_out records_out; do
+  if [ ! -f "$bcr_out" ]; then
+    python scripts/evaluate_bcr.py \
+      --model "$model_dir" \
+      --base-logprobs "$BASE_LOGPROBS" \
+      --dense-margins "$DENSE_MARGINS_EVAL" \
+      --data "$DATA_DIR/hh_rlhf_eval.jsonl" \
+      --max-samples 5000 \
+      --out "$bcr_out" \
+      --records-out "$records_out" \
+      --dtype bfloat16 \
+      --batch-size 1 \
+      --cache-dir "$HF_HUB_CACHE" \
+      --local-files-only \
+      --run-name "m12_bcr_5k_${method}_${ratio}_${alpha:-baseline}"
+  fi
+done
+
+GENERAL_INPUTS=(outputs/evals/general_m12_dense.json outputs/evals/general_m12_*_layerwise_*.json)
+BCR_INPUTS=(outputs/evals/bcr_m12_*_layerwise_*.json outputs/evals/bcr_m12_5k_*.json)
+
+python scripts/summarize_m12_hybrid.py \
+  --general-inputs "${GENERAL_INPUTS[@]}" \
+  --bcr-inputs "${BCR_INPUTS[@]}" \
+  --out outputs/tables/m12_alpha_sweep.csv \
+  --summary-out outputs/tables/m12_hybrid_summary.json \
+  --run-name m12_summarize_alpha_sweep_with_5k \
+  --overwrite
+
+cat outputs/tables/m12_alpha_sweep.csv
+cat outputs/tables/m12_hybrid_summary.json
+```
+
+Expected M12 outputs:
+
+```text
+outputs/tables/m12_alpha_sweep.csv
+outputs/tables/m12_hybrid_summary.json
+outputs/tables/m12_5k_bcr_targets.tsv
+```
+
+The M12 decision rule is: a hybrid setting must have `matched=true` and lower `BCR@q25` than its corresponding utility-only baseline at the same ratio and BCR sample size.
+
 ## Milestone Boundary
 
 M9 has passed after the remote Qwen2.5-1.5B 1k pilot table completed with 8 rows and all 8 BCR inputs summarized successfully on `1 x NVIDIA RTX PRO 6000 96GB`.
@@ -1102,4 +1374,6 @@ M10A has passed after the remote 20% matched-utility table completed with 5 rows
 
 M10B has passed as a larger remote smoke/checkpoint run. It produced the all-ratio matched-utility table and mask-distribution table, but no 10% or 20% pruned model satisfied the configured matched-utility thresholds. Under current global masking, 20% is not a mild regime.
 
-M11A is approved and limited to the layerwise/protected-layerwise regime above. Do not run post-pruning recovery, DPO, LoRA, 3B/7B scaling, PAT, Wanda, M11B, safety datasets, UltraFeedback, or work beyond M11A until explicitly approved.
+M11A passed after the layerwise Priority 1 grid found matched utility at 2% and avoided early-layer collapse. Activation 2% had the lowest matched `BCR@q25`, so M12 is approved to test hybrid utility-boundary scores before any scaling or recovery methods.
+
+M12 is limited to the hybrid alpha sweep above. Do not run post-pruning recovery, DPO, LoRA, 3B/7B scaling, PAT, Wanda, M13, safety datasets, UltraFeedback, or work beyond M12 until explicitly approved.

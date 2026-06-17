@@ -171,6 +171,86 @@ def nonzero_score_stats(scores: list[UnitScore]) -> dict[str, Any]:
     }
 
 
+def _percentile_ranks(items: list[UnitScore]) -> dict[tuple[str, int], float]:
+    if not items:
+        raise ValueError("Cannot normalize an empty score group")
+    if len(items) == 1:
+        item = items[0]
+        return {(item.module_name, item.unit_index): 1.0}
+
+    ranked = sorted(items, key=lambda item: (item.score, item.module_name, item.unit_index))
+    out: dict[tuple[str, int], float] = {}
+    denominator = float(len(ranked) - 1)
+    start = 0
+    while start < len(ranked):
+        end = start + 1
+        while end < len(ranked) and ranked[end].score == ranked[start].score:
+            end += 1
+        average_rank = (start + end - 1) / 2.0
+        percentile = average_rank / denominator
+        for item in ranked[start:end]:
+            out[(item.module_name, item.unit_index)] = percentile
+        start = end
+    return out
+
+
+def normalize_scores_by_rank(
+    groups: list[CoupledFFNUnitGroup],
+    scores: list[UnitScore],
+    *,
+    scope: str = "layerwise",
+) -> list[UnitScore]:
+    if scope not in {"global", "layerwise"}:
+        raise ValueError("Normalization scope must be 'global' or 'layerwise'")
+    _score_coverage_check(groups, scores)
+    score_by_key = {(item.module_name, item.unit_index): item for item in scores}
+    normalized_by_key: dict[tuple[str, int], float] = {}
+    if scope == "global":
+        normalized_by_key.update(_percentile_ranks(scores))
+    else:
+        for layer in sorted({group.layer for group in groups}):
+            layer_scores = [item for item in scores if item.layer == layer]
+            normalized_by_key.update(_percentile_ranks(layer_scores))
+
+    return [
+        UnitScore(
+            layer=score_by_key[(group.module_name, unit_index)].layer,
+            module_name=group.module_name,
+            unit_index=unit_index,
+            score=normalized_by_key[(group.module_name, unit_index)],
+        )
+        for group in groups
+        for unit_index in range(group.intermediate_size)
+    ]
+
+
+def hybrid_scores(
+    groups: list[CoupledFFNUnitGroup],
+    utility_scores: list[UnitScore],
+    boundary_scores: list[UnitScore],
+    *,
+    alpha: float,
+    normalization_scope: str = "layerwise",
+) -> list[UnitScore]:
+    if alpha < 0:
+        raise ValueError("alpha must be non-negative")
+    normalized_utility = normalize_scores_by_rank(groups, utility_scores, scope=normalization_scope)
+    normalized_boundary = normalize_scores_by_rank(groups, boundary_scores, scope=normalization_scope)
+    utility_by_key = {(item.module_name, item.unit_index): item for item in normalized_utility}
+    boundary_by_key = {(item.module_name, item.unit_index): item for item in normalized_boundary}
+    return [
+        UnitScore(
+            layer=group.layer,
+            module_name=group.module_name,
+            unit_index=unit_index,
+            score=utility_by_key[(group.module_name, unit_index)].score
+            + alpha * boundary_by_key[(group.module_name, unit_index)].score,
+        )
+        for group in groups
+        for unit_index in range(group.intermediate_size)
+    ]
+
+
 def random_scores(groups: list[CoupledFFNUnitGroup], *, seed: int) -> list[UnitScore]:
     rng = random.Random(seed)
     records: list[UnitScore] = []

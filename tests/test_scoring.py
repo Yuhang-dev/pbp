@@ -5,7 +5,9 @@ import pytest
 from pbp.ffn_units import CoupledFFNUnitGroup
 from pbp.scoring import (
     UnitScore,
+    hybrid_scores,
     nonzero_score_stats,
+    normalize_scores_by_rank,
     random_scores,
     score_stats,
     scores_by_module,
@@ -121,6 +123,41 @@ def test_select_lowest_score_mask_plan_protects_first_layer():
     assert mask_plan["masks_by_module"]["model.layers.1.mlp"] == [0, 0, 1, 1]
     assert mask_plan["actual_global_ratio"] == pytest.approx(0.25)
     assert mask_plan["actual_unprotected_ratio"] == pytest.approx(0.5)
+
+
+def test_normalize_scores_by_rank_is_layerwise():
+    groups = [group("model.layers.0.mlp", 0, 3), group("model.layers.1.mlp", 1, 3)]
+    scores = [
+        UnitScore(0, "model.layers.0.mlp", 0, 10.0),
+        UnitScore(0, "model.layers.0.mlp", 1, 20.0),
+        UnitScore(0, "model.layers.0.mlp", 2, 30.0),
+        UnitScore(1, "model.layers.1.mlp", 0, 100.0),
+        UnitScore(1, "model.layers.1.mlp", 1, 200.0),
+        UnitScore(1, "model.layers.1.mlp", 2, 300.0),
+    ]
+
+    normalized = scores_by_module(normalize_scores_by_rank(groups, scores, scope="layerwise"))
+
+    assert normalized["model.layers.0.mlp"] == [0.0, 0.5, 1.0]
+    assert normalized["model.layers.1.mlp"] == [0.0, 0.5, 1.0]
+
+
+def test_hybrid_scores_add_utility_and_weighted_boundary_ranks():
+    groups = [group("model.layers.0.mlp", 0, 3)]
+    utility = [
+        UnitScore(0, "model.layers.0.mlp", 0, 0.0),
+        UnitScore(0, "model.layers.0.mlp", 1, 1.0),
+        UnitScore(0, "model.layers.0.mlp", 2, 2.0),
+    ]
+    boundary = [
+        UnitScore(0, "model.layers.0.mlp", 0, 2.0),
+        UnitScore(0, "model.layers.0.mlp", 1, 1.0),
+        UnitScore(0, "model.layers.0.mlp", 2, 0.0),
+    ]
+
+    combined = scores_by_module(hybrid_scores(groups, utility, boundary, alpha=2.0))
+
+    assert combined["model.layers.0.mlp"] == [2.0, 1.5, 1.0]
 
 
 def test_score_stats_and_scores_by_module_are_finite():

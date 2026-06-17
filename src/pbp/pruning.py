@@ -132,6 +132,16 @@ def mask_plan_stats(mask_plan: dict[str, Any]) -> dict[str, Any]:
             "protection": mask_plan.get("protection", "none"),
         }
     )
+    for key in (
+        "alpha",
+        "utility_method",
+        "boundary_method",
+        "hybrid_normalization_scope",
+        "utility_scores",
+        "boundary_scores",
+    ):
+        if key in mask_plan:
+            stats[key] = mask_plan[key]
     return stats
 
 
