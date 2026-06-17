@@ -1,9 +1,9 @@
 # PROGRESS
 
 ## Current Milestone
-Milestone: M9
-Status: passed
-Last updated: 2026-06-17 17:10
+Milestone: M10A
+Status: remote commands ready; remote validation pending
+Last updated: 2026-06-17 19:30
 
 ## Completed Milestones
 - [x] M0: Repository skeleton
@@ -18,11 +18,11 @@ Last updated: 2026-06-17 17:10
 - [x] M9: pilot experiment table
 
 ## Current Blockers
-- None for M9.
+- M10A has not yet been run on the remote GPU. Local validation remains limited to syntax/static checks.
 
 ## Execution Boundary
 - Local machine: syntax/static checks only, such as `compileall`, `py_compile`, file-existence checks, and command/config drafting.
 - Remote machine: all functional validation, tests, smoke runs, HH-RLHF downloads, Qwen model loading, GPU inference, pruning, and evaluation experiments.
 
 ## Next Action
-Stop and wait for explicit approval before starting any next milestone, 3B/7B scaling, general utility evaluation, post-pruning recovery, DPO, or LoRA work.
+Run M10A only on the remote GPU: lightweight general-utility evaluation for dense Qwen2.5-1.5B-Instruct and the 20% M9 masked pruned models. Do not run 10%, 3B/7B, DPO, LoRA, or post-pruning recovery.

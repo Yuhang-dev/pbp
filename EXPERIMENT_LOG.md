@@ -928,7 +928,7 @@ Model: `Qwen/Qwen2.5-1.5B-Instruct`
 Reference: `Qwen/Qwen2.5-1.5B`
 Dataset: `Anthropic/hh-rlhf`
 Seed: 42
-GPU: remote `2 x RTX 4090`
+GPU: remote initially planned as `2 x RTX 4090`; final M9 execution used `1 x NVIDIA RTX PRO 6000 96GB`
 Runtime: not run yet
 Status: partial
 
@@ -1010,7 +1010,7 @@ Model: `Qwen/Qwen2.5-1.5B-Instruct`
 Reference: `Qwen/Qwen2.5-1.5B`
 Dataset: `data/processed/m9_pilot/hh_rlhf_eval.jsonl`
 Seed: 42
-GPU: remote RTX PRO 6000 96GB
+GPU: remote `1 x NVIDIA RTX PRO 6000 96GB`
 Runtime: 1.150619 seconds
 Status: success
 
@@ -1067,4 +1067,47 @@ Qwen/Qwen2.5-1.5B-Instruct,random,0.2,0.533,0.399,0.322701688555,0.280701754386,
 Notes:
 - Executed remotely because the protocol forbids local model loading, pruning, and evaluation.
 - The table has the required 8 rows and the summary run reported `"status": "success"`.
+- All 8 BCR input files were present and summarized successfully: 4 methods x 2 ratios.
+- `boundary_taylor_weighted` OOMed when Taylor scoring used `max_length > 2048`; the successful M9 run uses `max_length=2048`.
 - Boundary Taylor used precomputed calibration dense margins, `max_length=2048`, and response micro-batch size 1 after earlier OOM retries.
+
+## Run: M10A_REMOTE_PLAN_20260617_1920
+
+Date: 2026-06-17 19:20
+Milestone: M10A
+Purpose: Prepare remote-only lightweight matched-utility evaluation for dense Qwen2.5-1.5B-Instruct and the M9 20% masked pruned models.
+Command: See `EXPERIMENTS.md` section `M10A Matched Utility 20% Check`.
+Config file: none
+Git commit: pending
+Model: dense `Qwen/Qwen2.5-1.5B-Instruct`; masked 20% M9 models for `activation`, `boundary_taylor_weighted`, `random`, and `magnitude`
+Dataset: WikiText-2 raw test subset, ARC-Challenge validation subset, HellaSwag validation subset
+Seed: 42
+GPU: remote `1 x NVIDIA RTX PRO 6000 96GB`
+Runtime: not run yet
+Status: pending remote execution
+
+Planned outputs:
+- `outputs/evals/general_m10a_dense.json`
+- `outputs/evals/general_m10a_activation_20p.json`
+- `outputs/evals/general_m10a_boundary_taylor_weighted_20p.json`
+- `outputs/evals/general_m10a_random_20p.json`
+- `outputs/evals/general_m10a_magnitude_20p.json`
+- `outputs/tables/m10a_matched_utility_20p.csv`
+- `outputs/tables/m10a_matched_utility_20p.json`
+
+Metrics:
+
+```json
+{
+  "expected_general_json_files": 5,
+  "methods": ["dense", "activation", "boundary_taylor_weighted", "random", "magnitude"],
+  "ratios": [0.0, 0.2],
+  "metrics": ["ppl", "arc_c", "hellaswag"],
+  "remote_validation": "pending"
+}
+```
+
+Notes:
+- Download/cache commands are separated from evaluation commands so M10A can run with `--local-files-only` and `--datasets-local-files-only`.
+- M10A intentionally excludes 10% pruning, 3B/7B scaling, DPO, LoRA, and post-pruning recovery.
+- Local validation for this plan is limited to syntax/static checks.

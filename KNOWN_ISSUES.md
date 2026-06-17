@@ -21,5 +21,5 @@
 - M8 boundary-aware Taylor smoke completed remotely in `outputs/runs/20260617_145653_m8_boundary_taylor_smoke` with finite non-zero scores for all 250880 coupled FFN units and a selected mask different from activation pruning.
 - Model loading now passes `dtype=` to Transformers instead of deprecated `torch_dtype=`.
 - The RTX PRO 6000 Blackwell remote was upgraded from an incompatible `torch 2.3.0+cu121` environment to a CUDA 13-compatible PyTorch stack before completing M9.
-- M9 boundary Taylor OOMs were resolved by precomputing calibration dense margins, applying real Taylor max-length control, and splitting chosen/rejected Taylor backward passes with `response_micro_batch_size=1`.
+- M9 boundary Taylor OOMs were resolved by precomputing calibration dense margins, capping successful Taylor scoring at `max_length=2048`, and splitting chosen/rejected Taylor backward passes with `response_micro_batch_size=1`. Runs with `max_length > 2048` OOMed on the `1 x NVIDIA RTX PRO 6000 96GB` remote.
 - M9 remote 1k pilot table completed successfully with 8 rows in `outputs/tables/m9_qwen2p5_1p5b_pilot_1k.csv`.

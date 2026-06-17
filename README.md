@@ -13,6 +13,8 @@ This repository currently supports:
 - Random, magnitude, activation, and boundary-aware Taylor scoring.
 - BCR evaluation for dense or masked pruned models.
 - Pilot result-table summarization.
+- Lightweight general-utility evaluation for M10A matched-utility checks.
+- M10A matched-utility table summarization.
 - Unit tests for response masking and margin/coverage computation.
 
 Physical dimension-changing pruning is not implemented yet. The current MVP uses masked structured pruning.
@@ -95,4 +97,15 @@ The expected table output is:
 
 ```text
 outputs/tables/m9_qwen2p5_1p5b_pilot_1k.csv
+```
+
+## M10A Matched Utility
+
+M10A is remote-only and limited to dense Qwen2.5-1.5B-Instruct plus the 20% M9 masked pruned models. The command block is in `EXPERIMENTS.md` under `M10A Matched Utility 20% Check`.
+
+Expected outputs:
+
+```text
+outputs/evals/general_m10a_*.json
+outputs/tables/m10a_matched_utility_20p.csv
 ```

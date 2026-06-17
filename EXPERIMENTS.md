@@ -512,6 +512,126 @@ Expected pilot criteria:
 
 If rerunning after a partial M9 run, do not paste the whole block unless you first remove or rename the existing M9 outputs. The scripts intentionally refuse to overwrite existing output files and directories.
 
+## M10A Matched Utility 20% Check
+
+M10A is remote-only. Run only dense Qwen2.5-1.5B-Instruct and the M9 20% masked pruned models. Do not run 10%, 3B/7B, DPO, LoRA, or post-pruning recovery.
+
+This uses the repository lightweight evaluator rather than assuming `lm-evaluation-harness`, because the M9 pruned artifacts are masked models that need in-process mask injection. The metrics are subset checks for matched-utility diagnosis, not full benchmark claims.
+
+Download/cache the M10A model and datasets first. Run this block separately before evaluation:
+
+```bash
+source /root/.pbp_env
+cd /root/autodl-tmp/preference-boundary-pruning
+git pull
+export OMP_NUM_THREADS=1
+export TOKENIZERS_PARALLELISM=false
+export PYTORCH_CUDA_ALLOC_CONF=expandable_segments:True
+
+INSTRUCT_MODEL="Qwen/Qwen2.5-1.5B-Instruct"
+
+hf download "$INSTRUCT_MODEL" \
+  --cache-dir "$HF_HUB_CACHE"
+
+python - <<'PY'
+import os
+from datasets import load_dataset
+
+cache_dir = os.environ.get("HF_DATASETS_CACHE")
+kwargs = {"cache_dir": cache_dir} if cache_dir else {}
+
+jobs = [
+    ("wikitext", "wikitext-2-raw-v1", "test"),
+    ("allenai/ai2_arc", "ARC-Challenge", "validation"),
+    ("Rowan/hellaswag", None, "validation"),
+]
+
+for name, config, split in jobs:
+    if config is None:
+        dataset = load_dataset(name, split=split, **kwargs)
+    else:
+        dataset = load_dataset(name, config, split=split, **kwargs)
+    print(name, config, split, len(dataset))
+PY
+```
+
+After the cache step succeeds, run M10A evaluation offline from the cache:
+
+```bash
+source /root/.pbp_env
+cd /root/autodl-tmp/preference-boundary-pruning
+git pull
+export OMP_NUM_THREADS=1
+export TOKENIZERS_PARALLELISM=false
+export PYTORCH_CUDA_ALLOC_CONF=expandable_segments:True
+export HF_DATASETS_OFFLINE=1
+
+INSTRUCT_MODEL="Qwen/Qwen2.5-1.5B-Instruct"
+
+python scripts/evaluate_general.py \
+  --model "$INSTRUCT_MODEL" \
+  --method dense \
+  --ratio 0.0 \
+  --out outputs/evals/general_m10a_dense.json \
+  --dtype bfloat16 \
+  --batch-size 1 \
+  --max-length 2048 \
+  --ppl-samples 64 \
+  --arc-samples 100 \
+  --hellaswag-samples 100 \
+  --cache-dir "$HF_HUB_CACHE" \
+  --dataset-cache-dir "$HF_DATASETS_CACHE" \
+  --local-files-only \
+  --datasets-local-files-only \
+  --run-name m10a_general_dense
+
+for method in activation boundary_taylor_weighted random magnitude; do
+  python scripts/evaluate_general.py \
+    --model "outputs/pruned_models/qwen2p5_1p5b_${method}_mask_20p_m9" \
+    --out "outputs/evals/general_m10a_${method}_20p.json" \
+    --dtype bfloat16 \
+    --batch-size 1 \
+    --max-length 2048 \
+    --ppl-samples 64 \
+    --arc-samples 100 \
+    --hellaswag-samples 100 \
+    --cache-dir "$HF_HUB_CACHE" \
+    --dataset-cache-dir "$HF_DATASETS_CACHE" \
+    --local-files-only \
+    --datasets-local-files-only \
+    --run-name "m10a_general_${method}_20p"
+done
+
+python scripts/summarize_m10a_matched_utility.py \
+  --general-inputs \
+    outputs/evals/general_m10a_dense.json \
+    outputs/evals/general_m10a_activation_20p.json \
+    outputs/evals/general_m10a_boundary_taylor_weighted_20p.json \
+    outputs/evals/general_m10a_random_20p.json \
+    outputs/evals/general_m10a_magnitude_20p.json \
+  --bcr-table outputs/tables/m9_qwen2p5_1p5b_pilot_1k.csv \
+  --out outputs/tables/m10a_matched_utility_20p.csv \
+  --summary-out outputs/tables/m10a_matched_utility_20p.json \
+  --run-name m10a_summarize_matched_utility_20p
+```
+
+Check the M10A outputs:
+
+```bash
+cat outputs/tables/m10a_matched_utility_20p.csv
+cat outputs/tables/m10a_matched_utility_20p.json
+cat outputs/runs/*_m10a_general_*/*status.json
+cat outputs/runs/*_m10a_summarize_matched_utility_20p/status.json
+cat outputs/runs/*_m10a_summarize_matched_utility_20p/metrics.json
+```
+
+Expected M10A criteria:
+
+- Five general-utility JSON files exist under `outputs/evals/general_m10a_*.json`: dense plus activation, boundary_taylor_weighted, random, and magnitude at 20%.
+- `outputs/tables/m10a_matched_utility_20p.csv` has the required columns: `model`, `method`, `ratio`, `ppl`, `arc_c`, `hellaswag`, `bcr@q25`, `bcr@0`, `pref_acc`, `mean_margin_drop`, `utility_delta_vs_dense`, and `matched_utility_flag`.
+- Every model reports `loaded_successfully=true` and `general_utility_finite=true`.
+- Stop after this table and inspect whether `boundary_taylor_weighted` has lower `bcr@q25` than activation under a similar utility flag.
+
 ## Milestone Boundary
 
-M9 has passed after the remote Qwen2.5-1.5B 1k pilot table completed with 8 rows. Do not run post-pruning recovery, DPO, LoRA, 3B/7B scaling, general utility evaluation, or M10 work until explicitly approved.
+M9 has passed after the remote Qwen2.5-1.5B 1k pilot table completed with 8 rows and all 8 BCR inputs summarized successfully on `1 x NVIDIA RTX PRO 6000 96GB`. M10A is approved and limited to the 20% matched-utility check above. Do not run post-pruning recovery, DPO, LoRA, 3B/7B scaling, or 10% general-utility work until explicitly approved.
