@@ -8,7 +8,7 @@
 - Remote environment emitted `libgomp: Invalid value for environment variable OMP_NUM_THREADS`; M2 completed successfully, but the env var should be fixed before larger runs.
 - Transformers emitted a non-fatal `torch_dtype` deprecation warning; switch to `dtype` in a later cleanup.
 - M9 is implemented but not remotely validated yet; the 1k pilot table must be run on the remote machine before marking M9 passed.
-- M9 boundary Taylor 1k scoring failed once with CUDA OOM when scoring computed calibration dense margins inline via `--base-model`. Use precomputed `outputs/margins/dense_qwen2p5_1p5b_m9_calib_1k.jsonl` and pass it with `--dense-margins` before rerunning boundary scoring.
+- M9 boundary Taylor 1k scoring failed with CUDA OOM. First failure came from inline calibration margin computation with `--base-model`; second failure showed Taylor scoring was not applying `--max-length`. Fixed in code by applying truncation inside `differentiable_response_logprobs_batch` and reducing Taylor hook temporary tensor precision before aggregation.
 
 ## Resolved
 

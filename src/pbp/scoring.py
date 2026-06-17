@@ -354,13 +354,20 @@ def differentiable_response_logprobs_batch(
     prompt_response_pairs: list[tuple[str, str]],
     *,
     device: Any,
+    max_length: int | None = None,
 ):
     import torch
+
+    if max_length is not None and max_length <= 1:
+        raise ValueError("max_length must be greater than 1 when provided")
 
     sequences: list[list[int]] = []
     masks: list[list[int]] = []
     for formatted_prompt, response in prompt_response_pairs:
         input_ids, response_mask = build_response_token_mask(tokenizer, formatted_prompt, response)
+        if max_length is not None and len(input_ids) > max_length:
+            input_ids = input_ids[-max_length:]
+            response_mask = response_mask[-max_length:]
         sequences.append(input_ids)
         masks.append(response_mask)
 
@@ -396,11 +403,13 @@ def _make_taylor_forward(
     *,
     method: str,
 ):
+    import torch
+
     def forward(self, x):
         hidden = self.act_fn(self.gate_proj(x)) * self.up_proj(x)
 
         def grad_hook(grad):
-            values = hidden.detach().float() * grad.detach().float()
+            values = hidden.detach() * grad.detach()
             if method in {"boundary_taylor_drop", "boundary_taylor_weighted"}:
                 values = values.clamp_min(0.0)
             elif method in {"boundary_taylor_abs", "general_taylor"}:
@@ -411,9 +420,10 @@ def _make_taylor_forward(
             mask = active_mask.get("attention_mask")
             if mask is not None and values.ndim == 3:
                 weights = mask.to(device=values.device, dtype=values.dtype).unsqueeze(-1)
-                sums[module_name] += (values * weights).sum(dim=(0, 1)).cpu()
+                reduced = (values * weights).sum(dim=(0, 1), dtype=torch.float32)
             else:
-                sums[module_name] += values.reshape(-1, values.shape[-1]).sum(dim=0).cpu()
+                reduced = values.reshape(-1, values.shape[-1]).sum(dim=0, dtype=torch.float32)
+            sums[module_name] += reduced.cpu()
             return grad
 
         if hidden.requires_grad:
@@ -519,6 +529,7 @@ def taylor_scores(
                 tokenizer,
                 expanded,
                 device=device,
+                max_length=max_length,
             )
             active_mask["attention_mask"] = attention_mask
             sign_tensor = torch.tensor(signs, dtype=length_normalized.dtype, device=length_normalized.device)
@@ -539,6 +550,7 @@ def taylor_scores(
             "taylor_objective": "delta_margin" if method != "general_taylor" else "logprob_magnitude",
             "score_transform": method,
             "batch_size": batch_size,
+            "max_length": max_length,
         }
     )
     return flatten_scores(group_scores, groups), clean_info
