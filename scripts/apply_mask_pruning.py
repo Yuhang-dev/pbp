@@ -156,7 +156,7 @@ def load_model_and_tokenizer(args: argparse.Namespace):
         local_files_only=args.local_files_only,
     )
     model_kwargs = {
-        "torch_dtype": torch_dtype_from_name(args.dtype),
+        "dtype": torch_dtype_from_name(args.dtype),
         "trust_remote_code": args.trust_remote_code,
         "cache_dir": args.cache_dir,
         "local_files_only": args.local_files_only,

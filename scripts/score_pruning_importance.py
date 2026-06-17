@@ -61,7 +61,12 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--local-files-only", action="store_true")
     parser.add_argument("--trust-remote-code", action="store_true")
     parser.add_argument("--batch-size", type=int, default=1)
-    parser.add_argument("--max-length", type=int, default=1024)
+    parser.add_argument(
+        "--max-length",
+        type=int,
+        default=1024,
+        help="Maximum sequence length for activation/Taylor scoring. Use 0 to disable truncation for Taylor methods.",
+    )
     parser.add_argument("--tau-mode", choices=["0", "q25", "q50", "q75", "value", "all"], default="q25")
     parser.add_argument("--tau-value", type=float, default=None)
     parser.add_argument("--margin-eps", type=float, default=1e-6)
@@ -96,8 +101,10 @@ def validate_args(args: argparse.Namespace) -> None:
         raise ValueError("--max-samples must be positive when provided")
     if args.batch_size <= 0:
         raise ValueError("--batch-size must be positive")
-    if args.max_length <= 0:
-        raise ValueError("--max-length must be positive")
+    if args.max_length < 0:
+        raise ValueError("--max-length must be non-negative")
+    if args.method == "activation" and args.max_length <= 0:
+        raise ValueError("--max-length must be positive for activation scoring")
     if args.margin_eps <= 0:
         raise ValueError("--margin-eps must be positive")
     if args.method in {"activation", *TAYLOR_METHODS} and not args.data:
@@ -107,6 +114,7 @@ def validate_args(args: argparse.Namespace) -> None:
 
 
 def config_for_run(args: argparse.Namespace, model_id: str, out_path: Path) -> dict[str, Any]:
+    max_length = effective_max_length(args)
     return {
         "script": "scripts/score_pruning_importance.py",
         "model": model_id,
@@ -125,12 +133,19 @@ def config_for_run(args: argparse.Namespace, model_id: str, out_path: Path) -> d
         "device_map": args.device_map,
         "local_files_only": args.local_files_only,
         "text_mode": args.text_mode if args.method == "activation" else None,
-        "max_length": args.max_length if args.method in {"activation", *TAYLOR_METHODS} else None,
+        "max_length": max_length if args.method in {"activation", *TAYLOR_METHODS} else None,
+        "max_length_cli": args.max_length if args.method in {"activation", *TAYLOR_METHODS} else None,
         "dense_margins": args.dense_margins,
         "tau_mode": args.tau_mode if args.method in TAYLOR_METHODS else None,
         "tau_value": args.tau_value if args.method in TAYLOR_METHODS else None,
         "margin_eps": args.margin_eps if args.method in TAYLOR_METHODS else None,
     }
+
+
+def effective_max_length(args: argparse.Namespace) -> int | None:
+    if args.method in TAYLOR_METHODS and args.max_length == 0:
+        return None
+    return args.max_length
 
 
 def load_model(model_id: str, args: argparse.Namespace):
@@ -142,7 +157,7 @@ def load_model(model_id: str, args: argparse.Namespace):
     import torch
 
     model_kwargs = {
-        "torch_dtype": torch_dtype_from_name(args.dtype),
+        "dtype": torch_dtype_from_name(args.dtype),
         "trust_remote_code": args.trust_remote_code,
         "cache_dir": args.cache_dir,
         "local_files_only": args.local_files_only,
@@ -372,6 +387,7 @@ def main() -> None:
         elif args.method in TAYLOR_METHODS:
             tokenizer = load_tokenizer(model_id, args)
             records = load_records(args)
+            max_length = effective_max_length(args)
             if args.method == "general_taylor":
                 dense_margin_by_id = None
             else:
@@ -390,7 +406,7 @@ def main() -> None:
                 method=args.method,
                 dense_margin_by_id=dense_margin_by_id,
                 batch_size=args.batch_size,
-                max_length=args.max_length,
+                max_length=max_length,
                 tau_mode=args.tau_mode,
                 tau_value=args.tau_value,
                 margin_eps=args.margin_eps,

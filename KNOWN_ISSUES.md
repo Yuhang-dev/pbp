@@ -6,9 +6,9 @@
 - Local conda Python does not have `torch`, and local execution is no longer used for functional validation. Real tests, model execution, and forward-mask checks must run remotely.
 - The local environment has no bare `python` command on PATH. Syntax/static checks use `D:\anaconda3\python.exe`.
 - Remote environment emitted `libgomp: Invalid value for environment variable OMP_NUM_THREADS`; M2 completed successfully, but the env var should be fixed before larger runs.
-- Transformers emitted a non-fatal `torch_dtype` deprecation warning; switch to `dtype` in a later cleanup.
 - M9 is implemented but not remotely validated yet; the 1k pilot table must be run on the remote machine before marking M9 passed.
 - M9 boundary Taylor 1k scoring failed with CUDA OOM. First failure came from inline calibration margin computation with `--base-model`; second failure showed Taylor scoring was not applying `--max-length`. Fixed in code by applying truncation inside `differentiable_response_logprobs_batch` and reducing Taylor hook temporary tensor precision before aggregation.
+- The RTX PRO 6000 Blackwell remote initially had `torch 2.3.0+cu121`, which does not support compute capability `sm_120`; install a CUDA 13 PyTorch wheel before rerunning model workloads.
 
 ## Resolved
 
@@ -22,3 +22,4 @@
 - M6 random/magnitude/activation scoring smoke completed remotely in `outputs/runs/20260617_023019_m6_random_score_smoke`, `outputs/runs/20260617_023027_m6_magnitude_score_smoke`, and `outputs/runs/20260617_023036_m6_activation_score_smoke` with finite scores for all 250880 coupled FFN units and different selected masks across methods.
 - M7 BCR smoke completed remotely in `outputs/runs/20260617_024441_m7_bcr_dense_self_smoke` and `outputs/runs/20260617_024502_m7_bcr_random_10p_smoke`; dense-self BCR is zero and random 10% masked pruning reports finite BCR metrics.
 - M8 boundary-aware Taylor smoke completed remotely in `outputs/runs/20260617_145653_m8_boundary_taylor_smoke` with finite non-zero scores for all 250880 coupled FFN units and a selected mask different from activation pruning.
+- Model loading now passes `dtype=` to Transformers instead of deprecated `torch_dtype=`.

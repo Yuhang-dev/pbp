@@ -17,7 +17,7 @@ Do not run `pytest`, fixture smoke tests, dry-run validation scripts, Qwen model
 
 Expected remote hardware:
 
-- GPU: 2 x RTX 4090
+- GPU: 1 x RTX PRO 6000 96GB
 - RAM: 200 GB
 - System disk: 30 GB
 - Data disk: 50 GB
@@ -33,6 +33,29 @@ export HF_DATASETS_CACHE=/data/hf_cache/datasets
 export TRANSFORMERS_CACHE=/data/hf_cache/transformers
 export TORCH_HOME=/data/torch_cache
 export TOKENIZERS_PARALLELISM=false
+```
+
+Recommended dependency upgrade for RTX PRO 6000 96GB:
+
+```bash
+conda activate pbp
+python -m pip install -U pip setuptools wheel
+python -m pip uninstall -y torch torchvision torchaudio
+python -m pip install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cu130
+python -m pip install -U "transformers>=5.0" "accelerate>=1.14" "datasets>=5.0" "huggingface_hub[cli]>=1.0" numpy pyyaml tqdm matplotlib
+
+python - <<'PY'
+import torch, transformers, accelerate, datasets
+print("torch", torch.__version__, "cuda", torch.version.cuda)
+print("cuda_available", torch.cuda.is_available())
+if torch.cuda.is_available():
+    print("gpu", torch.cuda.get_device_name(0))
+    props = torch.cuda.get_device_properties(0)
+    print("capability", f"{props.major}.{props.minor}", "memory_gb", round(props.total_memory / 1024**3, 1))
+print("transformers", transformers.__version__)
+print("accelerate", accelerate.__version__)
+print("datasets", datasets.__version__)
+PY
 ```
 
 Recommended first remote smoke test:
@@ -417,7 +440,7 @@ python scripts/score_pruning_importance.py \
   --out outputs/scores/qwen2p5_1p5b_boundary_taylor_weighted_m9_calib_1k.json \
   --dtype bfloat16 \
   --batch-size 1 \
-  --max-length 1024 \
+  --max-length 0 \
   --cache-dir "$HF_HUB_CACHE" \
   --local-files-only \
   --run-name m9_score_boundary_taylor_weighted_1k

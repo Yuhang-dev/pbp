@@ -26,12 +26,14 @@ matrix:
 
 runtime:
   remote_only: true
-  gpu: 2 x RTX 4090
+  gpu: 1 x RTX PRO 6000 96GB
   ram: 200 GB
   system_disk: 30 GB
   data_disk: 50 GB
   batch_size: 1
-  max_length: 1024
+  activation_max_length: 1024
+  boundary_taylor_max_length: 0
+  boundary_taylor_max_length_note: "0 disables Taylor truncation; use 4096 or 2048 if memory still becomes unstable."
   local_files_only: true
 
 paths:

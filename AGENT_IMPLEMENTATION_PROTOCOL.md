@@ -85,7 +85,7 @@ Forbidden locally:
 Remote machine assumptions:
 
 ```text
-GPU: 2 x RTX 4090
+GPU: 1 x RTX PRO 6000 96GB
 RAM: 200 GB
 System disk: 30 GB
 Data disk: 50 GB
