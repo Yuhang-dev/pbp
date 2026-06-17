@@ -15,7 +15,7 @@ from tqdm import tqdm
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
 
 from pbp.chat_format import format_prompt
-from pbp.io import read_jsonl, write_jsonl
+from pbp.io import read_jsonl, read_jsonl_map, write_jsonl
 from pbp.logging_utils import RunLogger, finalize_run, initialize_run
 from pbp.logprobs import (
     ResponseLogProb,
@@ -41,7 +41,8 @@ class DryRunCharTokenizer:
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="Compute base-reference-normalized dense margins.")
     parser.add_argument("--instruct-model", required=True)
-    parser.add_argument("--base-model", required=True)
+    parser.add_argument("--base-model", default=None)
+    parser.add_argument("--base-logprobs", default=None)
     parser.add_argument("--data", required=True)
     parser.add_argument("--out", default=None)
     parser.add_argument("--out-dir", default="outputs/margins")
@@ -68,7 +69,7 @@ def output_path(args: argparse.Namespace) -> Path:
     if args.out:
         return Path(args.out)
     dense_slug = model_id_to_slug(args.instruct_model)
-    base_slug = model_id_to_slug(args.base_model)
+    base_slug = model_id_to_slug(args.base_model) if args.base_model else "cached_base"
     return Path(args.out_dir) / f"dense_margins_{dense_slug}_vs_{base_slug}.jsonl"
 
 
@@ -82,6 +83,8 @@ def validate_args(args: argparse.Namespace) -> None:
         raise ValueError("--batch-size must be positive")
     if args.max_samples is not None and args.max_samples <= 0:
         raise ValueError("--max-samples must be positive when provided")
+    if not args.base_model and not args.base_logprobs:
+        raise ValueError("Provide --base-model or --base-logprobs")
 
 
 def config_for_run(args: argparse.Namespace, out_path: Path) -> dict[str, Any]:
@@ -101,6 +104,7 @@ def config_for_run(args: argparse.Namespace, out_path: Path) -> dict[str, Any]:
         "device_map": args.device_map,
         "dry_run": args.dry_run,
         "local_files_only": args.local_files_only,
+        "base_logprobs": args.base_logprobs,
     }
 
 
@@ -246,7 +250,7 @@ def compute_margin_records(args: argparse.Namespace, logger: RunLogger) -> list[
         base_tokenizer = instruct_tokenizer
     else:
         instruct_tokenizer = load_tokenizer(args.instruct_model, args)
-        base_tokenizer = load_tokenizer(args.base_model, args)
+        base_tokenizer = load_tokenizer(args.base_model, args) if args.base_model and not args.base_logprobs else None
 
     formatted_prompts = [format_prompt(example["prompt"], instruct_tokenizer) for example in examples]
 
@@ -272,14 +276,19 @@ def compute_margin_records(args: argparse.Namespace, logger: RunLogger) -> list[
             args=args,
             logger=logger,
         )
-        base_by_id = score_real_model(
-            model_id=args.base_model,
-            tokenizer=base_tokenizer,
-            formatted_prompts=formatted_prompts,
-            examples=examples,
-            args=args,
-            logger=logger,
-        )
+        if args.base_logprobs:
+            base_by_id = read_jsonl_map(args.base_logprobs, key="id")
+        else:
+            if args.base_model is None or base_tokenizer is None:
+                raise ValueError("--base-model is required when --base-logprobs is not provided")
+            base_by_id = score_real_model(
+                model_id=args.base_model,
+                tokenizer=base_tokenizer,
+                formatted_prompts=formatted_prompts,
+                examples=examples,
+                args=args,
+                logger=logger,
+            )
 
     margin_records: list[dict[str, Any]] = []
     for example in examples:

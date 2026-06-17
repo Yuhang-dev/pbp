@@ -1,0 +1,44 @@
+milestone: M9
+name: qwen2p5_1p5b_pilot_1k
+description: First pilot table for Qwen2.5-1.5B masked structured pruning.
+
+model:
+  instruct: Qwen/Qwen2.5-1.5B-Instruct
+  base: Qwen/Qwen2.5-1.5B
+  dtype: bfloat16
+
+data:
+  dataset: Anthropic/hh-rlhf
+  out_dir: data/processed/m9_pilot
+  calib_size: 1000
+  eval_size: 1000
+  seed: 42
+
+matrix:
+  methods:
+    - random
+    - magnitude
+    - activation
+    - boundary_taylor_weighted
+  ratios:
+    - 0.10
+    - 0.20
+
+runtime:
+  remote_only: true
+  gpu: 2 x RTX 4090
+  ram: 200 GB
+  system_disk: 30 GB
+  data_disk: 50 GB
+  batch_size: 1
+  max_length: 1024
+  local_files_only: true
+
+paths:
+  base_logprobs: outputs/logprobs/base_qwen2p5_1p5b_m9_eval_1k.jsonl
+  dense_margins: outputs/margins/dense_qwen2p5_1p5b_m9_eval_1k.jsonl
+  scores_dir: outputs/scores
+  pruned_models_dir: outputs/pruned_models
+  evals_dir: outputs/evals
+  table_csv: outputs/tables/m9_qwen2p5_1p5b_pilot_1k.csv
+  table_json: outputs/tables/m9_qwen2p5_1p5b_pilot_1k.json

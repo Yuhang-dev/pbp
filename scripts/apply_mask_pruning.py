@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import math
 import shlex
 import sys
 import time
@@ -13,14 +14,16 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
 from pbp.ffn_units import CoupledFFNUnitGroup, discover_coupled_ffn_unit_groups
 from pbp.logging_utils import RunLogger, finalize_run, initialize_run
 from pbp.pruning import apply_mask_plan_to_model, create_global_random_mask_plan, save_mask_artifacts
+from pbp.scoring import flatten_scores, select_lowest_score_mask_plan
 from pbp.utils import infer_model_device, set_seed, torch_dtype_from_name
 
 
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="Apply mask-based coupled FFN intermediate-neuron pruning.")
-    parser.add_argument("--model", required=True)
+    parser.add_argument("--model", default=None)
+    parser.add_argument("--scores", default=None, help="Pruning score artifact produced by score_pruning_importance.py.")
     parser.add_argument("--method", choices=["random"], default="random")
-    parser.add_argument("--ratio", type=float, required=True)
+    parser.add_argument("--ratio", type=float, default=None)
     parser.add_argument("--out", required=True)
     parser.add_argument("--runs-dir", default="outputs/runs")
     parser.add_argument("--run-name", required=True)
@@ -45,7 +48,11 @@ def command_string() -> str:
 
 
 def validate_args(args: argparse.Namespace) -> None:
-    if not (0.0 < args.ratio < 1.0):
+    if not args.model and not args.scores:
+        raise ValueError("Provide --model for random masks or --scores for score-derived masks")
+    if args.scores is None and args.ratio is None:
+        raise ValueError("--ratio is required for random mask pruning")
+    if args.ratio is not None and not (0.0 < args.ratio < 1.0):
         raise ValueError("--ratio must be in (0, 1)")
     if args.max_new_tokens <= 0:
         raise ValueError("--max-new-tokens must be positive")
@@ -71,6 +78,7 @@ def config_for_run(args: argparse.Namespace) -> dict[str, Any]:
         "notes": "M5 mask-based coupled FFN pruning" + (" dry-run" if args.dry_run else ""),
         "method": args.method,
         "ratio": args.ratio,
+        "scores": args.scores,
         "device_map": args.device_map,
         "dry_run": args.dry_run,
         "local_files_only": args.local_files_only,
@@ -90,6 +98,46 @@ def toy_groups(num_layers: int, intermediate_size: int) -> list[CoupledFFNUnitGr
         )
         for layer in range(num_layers)
     ]
+
+
+def group_from_dict(record: dict[str, Any]) -> CoupledFFNUnitGroup:
+    return CoupledFFNUnitGroup(
+        layer=int(record["layer"]),
+        module_name=str(record["module_name"]),
+        intermediate_size=int(record["intermediate_size"]),
+        gate_shape=tuple(int(value) for value in record["gate_shape"]),
+        up_shape=tuple(int(value) for value in record["up_shape"]),
+        down_shape=tuple(int(value) for value in record["down_shape"]),
+    )
+
+
+def load_score_artifact_mask_plan(
+    score_path: str | Path,
+    *,
+    ratio: float | None,
+    seed: int,
+) -> tuple[str, str, float, list[CoupledFFNUnitGroup], dict[str, Any]]:
+    payload = json.loads(Path(score_path).read_text(encoding="utf-8"))
+    if payload.get("artifact_type") != "pruning_importance_scores":
+        raise ValueError(f"{score_path} is not a pruning importance score artifact")
+    if "groups" not in payload or "scores_by_module" not in payload:
+        raise ValueError(f"{score_path} is missing groups or scores_by_module")
+
+    model_id = str(payload["model"])
+    method = str(payload.get("method", "from_scores"))
+    artifact_seed = int(payload.get("seed", seed))
+    groups = [group_from_dict(record) for record in payload["groups"]]
+    selected_ratio = float(ratio if ratio is not None else payload.get("ratio"))
+
+    scores = flatten_scores(payload["scores_by_module"], groups)
+    mask_plan = select_lowest_score_mask_plan(
+        groups,
+        scores,
+        ratio=selected_ratio,
+        method=method,
+        seed=artifact_seed,
+    )
+    return model_id, method, selected_ratio, groups, mask_plan
 
 
 def load_model_and_tokenizer(args: argparse.Namespace):
@@ -162,8 +210,33 @@ def main() -> None:
         if out_dir.exists():
             raise FileExistsError(f"Refusing to overwrite existing output directory: {out_dir}")
 
-        if args.dry_run:
+        if args.scores:
+            if args.dry_run:
+                raise ValueError("--dry-run cannot be combined with --scores")
+            model_id, method, ratio, groups, mask_plan = load_score_artifact_mask_plan(
+                args.scores,
+                ratio=args.ratio,
+                seed=args.seed,
+            )
+            if args.model and args.model != model_id:
+                raise ValueError(f"--model={args.model!r} does not match score artifact model={model_id!r}")
+            artifact_info = save_mask_artifacts(
+                out_dir=out_dir,
+                model_id=model_id,
+                method=method,
+                ratio=ratio,
+                seed=int(mask_plan.get("seed", args.seed)),
+                groups=groups,
+                mask_plan=mask_plan,
+                dry_run=False,
+            )
+            generation_info = {"generation_success": None, "generated_new_tokens": None}
+            args_method = method
+            requested_ratio = ratio
+        elif args.dry_run:
             groups = toy_groups(args.dry_run_layers, args.dry_run_intermediate_size)
+            if args.ratio is None:
+                raise ValueError("--ratio is required for dry-run mask pruning")
             mask_plan = create_global_random_mask_plan(groups, ratio=args.ratio, seed=args.seed)
             artifact_info = save_mask_artifacts(
                 out_dir=out_dir,
@@ -176,7 +249,11 @@ def main() -> None:
                 dry_run=True,
             )
             generation_info = {"generation_success": None, "generated_new_tokens": None}
+            args_method = args.method
+            requested_ratio = args.ratio
         else:
+            if args.ratio is None:
+                raise ValueError("--ratio is required for random mask pruning")
             model, tokenizer = load_model_and_tokenizer(args)
             groups = discover_coupled_ffn_unit_groups(model)
             mask_plan = create_global_random_mask_plan(groups, ratio=args.ratio, seed=args.seed)
@@ -206,16 +283,20 @@ def main() -> None:
                 )
             else:
                 generation_info = {"generation_success": None, "generated_new_tokens": None}
+            args_method = args.method
+            requested_ratio = args.ratio
 
         metrics = {
-            "method": args.method,
-            "requested_ratio": args.ratio,
+            "method": args_method,
+            "requested_ratio": requested_ratio,
             "total_units": int(artifact_info["total_units"]),
             "num_pruned_units": int(artifact_info["num_pruned_units"]),
             "num_kept_units": int(artifact_info["num_kept_units"]),
             "actual_ratio": float(artifact_info["actual_ratio"]),
             "num_masked_modules": int(artifact_info["num_masked_modules"]),
             "dry_run": args.dry_run,
+            "source_scores": args.scores,
+            "ratio_matches_request": math.isclose(float(artifact_info["actual_ratio"]), float(requested_ratio), rel_tol=0.0, abs_tol=1e-12),
             **generation_info,
         }
         finalize_run(run_paths, start_monotonic=start, metrics=metrics)

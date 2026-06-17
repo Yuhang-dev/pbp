@@ -915,3 +915,50 @@ Notes:
 - Executed remotely because the protocol forbids local Qwen model loading and gradient-based scoring.
 - Selected 9 of 20 calibration pairs above `tau_calib=0.12528753158359246` for boundary Taylor scoring.
 - The remote mask comparison printed `boundary 25088 250880 True False` and `activation 25088 250880 True`; the comparison assertions did not fail, so selected masks differ from activation pruning.
+
+## Run: M9_REMOTE_PLAN_20260617_1535
+
+Date: 2026-06-17 15:35
+Milestone: M9
+Purpose: Prepared the remote-only Qwen2.5-1.5B 1k pilot table command plan and implementation support.
+Command: See `EXPERIMENTS.md` section `M9 Remote Pilot Table`.
+Config file: `configs/m9_pilot_qwen2p5_1p5b.yaml`
+Git commit: pending
+Model: `Qwen/Qwen2.5-1.5B-Instruct`
+Reference: `Qwen/Qwen2.5-1.5B`
+Dataset: `Anthropic/hh-rlhf`
+Seed: 42
+GPU: remote `2 x RTX 4090`
+Runtime: not run yet
+Status: partial
+
+Inputs:
+- `data/processed/m9_pilot/hh_rlhf_calib.jsonl`
+- `data/processed/m9_pilot/hh_rlhf_eval.jsonl`
+- cached `Qwen/Qwen2.5-1.5B-Instruct`
+- cached `Qwen/Qwen2.5-1.5B`
+
+Planned outputs:
+- `outputs/logprobs/base_qwen2p5_1p5b_m9_eval_1k.jsonl`
+- `outputs/margins/dense_qwen2p5_1p5b_m9_eval_1k.jsonl`
+- `outputs/scores/qwen2p5_1p5b_{random,magnitude,activation,boundary_taylor_weighted}_m9_calib_1k.json`
+- `outputs/pruned_models/qwen2p5_1p5b_{method}_mask_{10p,20p}_m9/`
+- `outputs/evals/bcr_qwen2p5_1p5b_{method}_{10p,20p}_m9_1k.json`
+- `outputs/tables/m9_qwen2p5_1p5b_pilot_1k.csv`
+- `outputs/tables/m9_qwen2p5_1p5b_pilot_1k.json`
+
+Metrics:
+
+```json
+{
+  "remote_validation": "pending",
+  "expected_rows": 8,
+  "methods": ["random", "magnitude", "activation", "boundary_taylor_weighted"],
+  "ratios": [0.1, 0.2],
+  "eval_samples": 1000
+}
+```
+
+Notes:
+- This is a command/config tracking entry only. The local machine was not used for functional validation.
+- M9 should not be marked passed until the remote table exists and all required run directories report success.

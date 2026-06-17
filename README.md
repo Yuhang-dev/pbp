@@ -9,9 +9,13 @@ This repository currently supports:
 - Base-reference-normalized dense margin computation.
 - Coverage and preference-accuracy reporting.
 - Margin histogram export.
+- Mask-based coupled SwiGLU FFN pruning artifacts.
+- Random, magnitude, activation, and boundary-aware Taylor scoring.
+- BCR evaluation for dense or masked pruned models.
+- Pilot result-table summarization.
 - Unit tests for response masking and margin/coverage computation.
 
-Pruning is intentionally not implemented yet. It starts in Milestone 2.
+Physical dimension-changing pruning is not implemented yet. The current MVP uses masked structured pruning.
 
 ## Setup
 
@@ -76,3 +80,19 @@ python -m compileall src scripts tests
 ```
 
 Run functional tests, smoke runs, model loading, pruning, and evaluation on the remote machine. See `EXPERIMENTS.md` for remote execution notes and storage layout.
+
+## Milestone 9 Pilot Table
+
+M9 is remote-only. The command block is in `EXPERIMENTS.md` under `M9 Remote Pilot Table`, with matrix:
+
+```text
+methods = random, magnitude, activation, boundary_taylor_weighted
+ratios = 0.10, 0.20
+eval_samples = 1000 HH-RLHF pairs
+```
+
+The expected table output is:
+
+```text
+outputs/tables/m9_qwen2p5_1p5b_pilot_1k.csv
+```

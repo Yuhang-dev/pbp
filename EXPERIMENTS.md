@@ -312,6 +312,167 @@ Expected smoke criteria:
 - `method_info` reports `tau_mode=q25` and `num_selected_pairs > 0`.
 - The mask comparison script succeeds, confirming boundary Taylor selects a different pruning mask than activation pruning.
 
+## M9 Remote Pilot Table
+
+Run this on the remote machine only, after pulling the latest commit. This produces the first 1k-pair pilot table for Qwen2.5-1.5B with methods `random`, `magnitude`, `activation`, and `boundary_taylor_weighted` at ratios `0.10` and `0.20`.
+
+```bash
+source /root/.pbp_env
+cd /root/autodl-tmp/preference-boundary-pruning
+git pull
+export OMP_NUM_THREADS=1
+export TOKENIZERS_PARALLELISM=false
+
+INSTRUCT_MODEL="Qwen/Qwen2.5-1.5B-Instruct"
+BASE_MODEL="Qwen/Qwen2.5-1.5B"
+DATA_DIR="data/processed/m9_pilot"
+
+python scripts/prepare_hh_rlhf.py \
+  --dataset Anthropic/hh-rlhf \
+  --calib-size 1000 \
+  --eval-size 1000 \
+  --seed 42 \
+  --out-dir "$DATA_DIR" \
+  --run-name m9_prepare_hh_rlhf_1k
+
+python scripts/compute_base_logprobs.py \
+  --base-model "$BASE_MODEL" \
+  --chat-template-model "$INSTRUCT_MODEL" \
+  --data "$DATA_DIR/hh_rlhf_eval.jsonl" \
+  --max-samples 1000 \
+  --out outputs/logprobs/base_qwen2p5_1p5b_m9_eval_1k.jsonl \
+  --dtype bfloat16 \
+  --batch-size 1 \
+  --cache-dir "$HF_HUB_CACHE" \
+  --local-files-only \
+  --run-name m9_base_logprobs_eval_1k
+
+python scripts/compute_dense_margins.py \
+  --instruct-model "$INSTRUCT_MODEL" \
+  --base-logprobs outputs/logprobs/base_qwen2p5_1p5b_m9_eval_1k.jsonl \
+  --data "$DATA_DIR/hh_rlhf_eval.jsonl" \
+  --max-samples 1000 \
+  --out outputs/margins/dense_qwen2p5_1p5b_m9_eval_1k.jsonl \
+  --dtype bfloat16 \
+  --batch-size 1 \
+  --cache-dir "$HF_HUB_CACHE" \
+  --local-files-only \
+  --run-name m9_dense_margins_eval_1k
+
+python scripts/score_pruning_importance.py \
+  --model "$INSTRUCT_MODEL" \
+  --method random \
+  --ratio 0.10 \
+  --out outputs/scores/qwen2p5_1p5b_random_m9_calib_1k.json \
+  --dtype bfloat16 \
+  --cache-dir "$HF_HUB_CACHE" \
+  --local-files-only \
+  --run-name m9_score_random_1k
+
+python scripts/score_pruning_importance.py \
+  --model "$INSTRUCT_MODEL" \
+  --method magnitude \
+  --ratio 0.10 \
+  --out outputs/scores/qwen2p5_1p5b_magnitude_m9_calib_1k.json \
+  --dtype bfloat16 \
+  --cache-dir "$HF_HUB_CACHE" \
+  --local-files-only \
+  --run-name m9_score_magnitude_1k
+
+python scripts/score_pruning_importance.py \
+  --model "$INSTRUCT_MODEL" \
+  --data "$DATA_DIR/hh_rlhf_calib.jsonl" \
+  --method activation \
+  --max-samples 1000 \
+  --ratio 0.10 \
+  --out outputs/scores/qwen2p5_1p5b_activation_m9_calib_1k.json \
+  --dtype bfloat16 \
+  --batch-size 1 \
+  --max-length 1024 \
+  --cache-dir "$HF_HUB_CACHE" \
+  --local-files-only \
+  --run-name m9_score_activation_1k
+
+python scripts/score_pruning_importance.py \
+  --instruct-model "$INSTRUCT_MODEL" \
+  --base-model "$BASE_MODEL" \
+  --data "$DATA_DIR/hh_rlhf_calib.jsonl" \
+  --method boundary_taylor_weighted \
+  --max-samples 1000 \
+  --tau-mode q25 \
+  --ratio 0.10 \
+  --out outputs/scores/qwen2p5_1p5b_boundary_taylor_weighted_m9_calib_1k.json \
+  --dtype bfloat16 \
+  --batch-size 1 \
+  --max-length 1024 \
+  --cache-dir "$HF_HUB_CACHE" \
+  --local-files-only \
+  --run-name m9_score_boundary_taylor_weighted_1k
+
+METHODS=(random magnitude activation boundary_taylor_weighted)
+RATIOS=("0.10:10p" "0.20:20p")
+
+for pair in "${RATIOS[@]}"; do
+  ratio="${pair%%:*}"
+  label="${pair##*:}"
+  for method in "${METHODS[@]}"; do
+    python scripts/apply_mask_pruning.py \
+      --scores "outputs/scores/qwen2p5_1p5b_${method}_m9_calib_1k.json" \
+      --ratio "$ratio" \
+      --out "outputs/pruned_models/qwen2p5_1p5b_${method}_mask_${label}_m9" \
+      --run-name "m9_apply_${method}_${label}"
+  done
+done
+
+for pair in "${RATIOS[@]}"; do
+  label="${pair##*:}"
+  for method in "${METHODS[@]}"; do
+    python scripts/evaluate_bcr.py \
+      --model "outputs/pruned_models/qwen2p5_1p5b_${method}_mask_${label}_m9" \
+      --base-logprobs outputs/logprobs/base_qwen2p5_1p5b_m9_eval_1k.jsonl \
+      --dense-margins outputs/margins/dense_qwen2p5_1p5b_m9_eval_1k.jsonl \
+      --data "$DATA_DIR/hh_rlhf_eval.jsonl" \
+      --max-samples 1000 \
+      --out "outputs/evals/bcr_qwen2p5_1p5b_${method}_${label}_m9_1k.json" \
+      --records-out "outputs/evals/bcr_qwen2p5_1p5b_${method}_${label}_m9_1k_records.jsonl" \
+      --dtype bfloat16 \
+      --batch-size 1 \
+      --cache-dir "$HF_HUB_CACHE" \
+      --local-files-only \
+      --run-name "m9_bcr_${method}_${label}_1k"
+  done
+done
+
+python scripts/summarize_results.py \
+  --inputs \
+    outputs/evals/bcr_qwen2p5_1p5b_random_10p_m9_1k.json \
+    outputs/evals/bcr_qwen2p5_1p5b_magnitude_10p_m9_1k.json \
+    outputs/evals/bcr_qwen2p5_1p5b_activation_10p_m9_1k.json \
+    outputs/evals/bcr_qwen2p5_1p5b_boundary_taylor_weighted_10p_m9_1k.json \
+    outputs/evals/bcr_qwen2p5_1p5b_random_20p_m9_1k.json \
+    outputs/evals/bcr_qwen2p5_1p5b_magnitude_20p_m9_1k.json \
+    outputs/evals/bcr_qwen2p5_1p5b_activation_20p_m9_1k.json \
+    outputs/evals/bcr_qwen2p5_1p5b_boundary_taylor_weighted_20p_m9_1k.json \
+  --out outputs/tables/m9_qwen2p5_1p5b_pilot_1k.csv \
+  --summary-out outputs/tables/m9_qwen2p5_1p5b_pilot_1k.json \
+  --run-name m9_summarize_pilot_1k
+```
+
+Check the table and run statuses:
+
+```bash
+cat outputs/tables/m9_qwen2p5_1p5b_pilot_1k.csv
+cat outputs/runs/*_m9_summarize_pilot_1k/status.json
+cat outputs/runs/*_m9_summarize_pilot_1k/metrics.json
+```
+
+Expected pilot criteria:
+
+- The CSV has 8 rows: 4 methods x 2 ratios.
+- Every BCR evaluation run has `"status": "success"`.
+- The table contains the required columns: `model`, `method`, `ratio`, `coverage@0`, `coverage@q25`, `bcr@0`, `bcr@q25`, `pref_acc`, and `mean_margin_drop`.
+- Any failed remote run must be recorded in `KNOWN_ISSUES.md` before marking M9 passed.
+
 ## Milestone Boundary
 
-M8 has passed after boundary-aware Taylor scoring plus remote smoke verification. Do not run M9 pilot tables, post-pruning recovery, DPO, or LoRA until explicitly approved.
+M9 implementation is in progress. Run the remote pilot commands above and report the table before marking M9 passed. Do not run post-pruning recovery, DPO, LoRA, 3B/7B scaling, or M10 work until explicitly approved.

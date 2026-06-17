@@ -1,9 +1,9 @@
 # PROGRESS
 
 ## Current Milestone
-Milestone: M8
-Status: passed
-Last updated: 2026-06-17 15:00
+Milestone: M9
+Status: in_progress
+Last updated: 2026-06-17 15:35
 
 ## Completed Milestones
 - [x] M0: Repository skeleton
@@ -18,11 +18,11 @@ Last updated: 2026-06-17 15:00
 - [ ] M9: pilot experiment table
 
 ## Current Blockers
-- None for M8.
+- M9 remote 1k pilot table has not been run yet.
 
 ## Execution Boundary
 - Local machine: syntax/static checks only, such as `compileall`, `py_compile`, file-existence checks, and command/config drafting.
 - Remote machine: all functional validation, tests, smoke runs, HH-RLHF downloads, Qwen model loading, GPU inference, pruning, and evaluation experiments.
 
 ## Next Action
-Stop and wait for explicit approval to begin M9: pilot experiment table.
+Run the M9 remote pilot commands in `EXPERIMENTS.md`, then paste back the table and run metrics so M9 can be marked passed or failed.
