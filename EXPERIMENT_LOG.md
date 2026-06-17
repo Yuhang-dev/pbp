@@ -962,3 +962,38 @@ Metrics:
 Notes:
 - This is a command/config tracking entry only. The local machine was not used for functional validation.
 - M9 should not be marked passed until the remote table exists and all required run directories report success.
+
+## Run: 20260617_153128_m9_score_boundary_taylor_weighted_1k
+
+Date: 2026-06-17 15:31
+Milestone: M9
+Purpose: Remote boundary Taylor weighted scoring for the 1k pilot table.
+Command: `python scripts/score_pruning_importance.py --instruct-model Qwen/Qwen2.5-1.5B-Instruct --base-model Qwen/Qwen2.5-1.5B --data data/processed/m9_pilot/hh_rlhf_calib.jsonl --method boundary_taylor_weighted --max-samples 1000 --tau-mode q25 --ratio 0.10 --out outputs/scores/qwen2p5_1p5b_boundary_taylor_weighted_m9_calib_1k.json ...`
+Config file: `outputs/runs/20260617_153128_m9_score_boundary_taylor_weighted_1k/config.yaml`
+Git commit: `cf1b2c3`
+Model: `Qwen/Qwen2.5-1.5B-Instruct`
+Reference: `Qwen/Qwen2.5-1.5B`
+Dataset: `data/processed/m9_pilot/hh_rlhf_calib.jsonl`
+Seed: 42
+GPU: remote
+Runtime: 142.586693 seconds
+Status: failed
+
+Inputs:
+- `data/processed/m9_pilot/hh_rlhf_calib.jsonl`
+- cached `Qwen/Qwen2.5-1.5B-Instruct`
+- cached `Qwen/Qwen2.5-1.5B`
+
+Outputs:
+- No score artifact was produced.
+
+Metrics:
+
+```json
+{}
+```
+
+Notes:
+- Failure reason: CUDA OOM while boundary scoring computed calibration dense margins inline with `--base-model`.
+- Follow-up fix: precompute calibration dense margins with `scripts/compute_dense_margins.py`, then rerun boundary scoring with `--dense-margins outputs/margins/dense_qwen2p5_1p5b_m9_calib_1k.jsonl`.
+- The failed boundary apply/evaluate/summarize runs after this are downstream failures from the missing boundary score artifact.

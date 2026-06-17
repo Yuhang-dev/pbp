@@ -145,6 +145,11 @@ def resolve_mask_config(model_arg: str, explicit_mask_config: str | None) -> Pat
     candidate = model_path / "mask_config.json"
     if model_path.is_dir() and candidate.is_file():
         return candidate
+    if model_arg.startswith(("outputs/", "outputs\\")) or model_path.is_absolute():
+        raise FileNotFoundError(
+            f"Expected masked model artifact directory with mask_config.json, but it was not found: {model_arg}. "
+            "Run scripts/apply_mask_pruning.py for this method/ratio before evaluate_bcr.py."
+        )
     return None
 
 

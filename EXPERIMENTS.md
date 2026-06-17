@@ -322,6 +322,7 @@ cd /root/autodl-tmp/preference-boundary-pruning
 git pull
 export OMP_NUM_THREADS=1
 export TOKENIZERS_PARALLELISM=false
+export PYTORCH_CUDA_ALLOC_CONF=expandable_segments:True
 
 INSTRUCT_MODEL="Qwen/Qwen2.5-1.5B-Instruct"
 BASE_MODEL="Qwen/Qwen2.5-1.5B"
@@ -359,6 +360,18 @@ python scripts/compute_dense_margins.py \
   --local-files-only \
   --run-name m9_dense_margins_eval_1k
 
+python scripts/compute_dense_margins.py \
+  --instruct-model "$INSTRUCT_MODEL" \
+  --base-model "$BASE_MODEL" \
+  --data "$DATA_DIR/hh_rlhf_calib.jsonl" \
+  --max-samples 1000 \
+  --out outputs/margins/dense_qwen2p5_1p5b_m9_calib_1k.jsonl \
+  --dtype bfloat16 \
+  --batch-size 1 \
+  --cache-dir "$HF_HUB_CACHE" \
+  --local-files-only \
+  --run-name m9_dense_margins_calib_1k
+
 python scripts/score_pruning_importance.py \
   --model "$INSTRUCT_MODEL" \
   --method random \
@@ -395,7 +408,7 @@ python scripts/score_pruning_importance.py \
 
 python scripts/score_pruning_importance.py \
   --instruct-model "$INSTRUCT_MODEL" \
-  --base-model "$BASE_MODEL" \
+  --dense-margins outputs/margins/dense_qwen2p5_1p5b_m9_calib_1k.jsonl \
   --data "$DATA_DIR/hh_rlhf_calib.jsonl" \
   --method boundary_taylor_weighted \
   --max-samples 1000 \
