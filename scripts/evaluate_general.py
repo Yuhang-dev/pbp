@@ -4,6 +4,7 @@ import argparse
 import gc
 import json
 import math
+import os
 import shlex
 import sys
 import time
@@ -11,6 +12,11 @@ from pathlib import Path
 from typing import Any
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
+
+_omp_threads = os.environ.get("OMP_NUM_THREADS", "1").strip()
+if not _omp_threads.isdigit() or int(_omp_threads) <= 0:
+    _omp_threads = "1"
+os.environ["OMP_NUM_THREADS"] = _omp_threads
 
 from pbp.eval_general import (
     compute_lm_perplexity,
@@ -45,7 +51,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--local-files-only", action="store_true", help="Use local model files only.")
     parser.add_argument("--datasets-local-files-only", action="store_true", help="Use local dataset cache only.")
     parser.add_argument("--trust-remote-code", action="store_true")
-    parser.add_argument("--ppl-dataset", default="wikitext")
+    parser.add_argument("--ppl-dataset", default="Salesforce/wikitext")
     parser.add_argument("--ppl-config", default="wikitext-2-raw-v1")
     parser.add_argument("--ppl-split", default="test")
     parser.add_argument("--ppl-samples", type=int, default=64)
@@ -178,7 +184,7 @@ def config_for_run(args: argparse.Namespace, model_load_id: str | None = None) -
         "model": args.model,
         "model_load_id": model_load_id,
         "base_model": None,
-        "dataset": "wikitext/ARC-Challenge/HellaSwag subsets",
+        "dataset": "Salesforce/wikitext, ARC-Challenge, and HellaSwag subsets",
         "data_path": None,
         "seed": args.seed,
         "dtype": args.dtype,

@@ -6,6 +6,7 @@
 - Local conda Python does not have `torch`, and local execution is no longer used for functional validation. Real tests, model execution, and forward-mask checks must run remotely.
 - The local environment has no bare `python` command on PATH. Syntax/static checks use `D:\anaconda3\python.exe`.
 - Remote environment emitted `libgomp: Invalid value for environment variable OMP_NUM_THREADS`; M2 completed successfully, but the env var should be fixed before larger runs.
+- M10A first dense general-utility attempt failed because current `datasets`/`huggingface_hub` rejects the bare `wikitext` dataset ID. The command/code now uses `Salesforce/wikitext`; rerun M10A after pulling the latest commit and re-caching the dataset.
 
 ## Resolved
 

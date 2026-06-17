@@ -1111,3 +1111,30 @@ Notes:
 - Download/cache commands are separated from evaluation commands so M10A can run with `--local-files-only` and `--datasets-local-files-only`.
 - M10A intentionally excludes 10% pruning, 3B/7B scaling, DPO, LoRA, and post-pruning recovery.
 - Local validation for this plan is limited to syntax/static checks.
+
+## Run: M10A_DENSE_GENERAL_FAILURE_20260617_WIKITEXT_ID
+
+Date: 2026-06-17
+Milestone: M10A
+Purpose: Remote dense general-utility attempt for Qwen2.5-1.5B-Instruct.
+Command: `python scripts/evaluate_general.py --model Qwen/Qwen2.5-1.5B-Instruct --method dense ... --run-name m10a_general_dense`
+Config file: `outputs/runs/*_m10a_general_dense/config.yaml`
+Git commit: `b5bdce7`
+Model: `Qwen/Qwen2.5-1.5B-Instruct`
+Dataset: WikiText-2 raw test subset, ARC-Challenge validation subset, HellaSwag validation subset
+Seed: 42
+GPU: remote `1 x NVIDIA RTX PRO 6000 96GB`
+Runtime: failed before metric computation
+Status: failed
+
+Failure:
+
+```text
+huggingface_hub.errors.HfUriError: Invalid HF URI 'hf://datasets/wikitext@.../.huggingface.yaml'. Repository id must be 'namespace/name', got 'wikitext'.
+```
+
+Notes:
+- The model loaded successfully before the dataset error.
+- Root cause: current `datasets`/`huggingface_hub` rejects the bare `wikitext` dataset ID.
+- Fix: use canonical dataset ID `Salesforce/wikitext`, re-cache it, and rerun M10A after pulling the fix commit.
+- The remote also emitted `libgomp: Invalid value for environment variable OMP_NUM_THREADS`; M10A commands now unset and reset `OMP_NUM_THREADS`, and `scripts/evaluate_general.py` sanitizes it before importing modules that may load OpenMP.

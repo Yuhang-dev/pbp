@@ -3,7 +3,7 @@
 ## Current Milestone
 Milestone: M10A
 Status: remote commands ready; remote validation pending
-Last updated: 2026-06-17 19:30
+Last updated: 2026-06-17 19:45
 
 ## Completed Milestones
 - [x] M0: Repository skeleton
@@ -18,7 +18,7 @@ Last updated: 2026-06-17 19:30
 - [x] M9: pilot experiment table
 
 ## Current Blockers
-- M10A has not yet been run on the remote GPU. Local validation remains limited to syntax/static checks.
+- M10A first dense run failed on the remote because bare dataset ID `wikitext` is rejected by the current `datasets`/`huggingface_hub` stack. Fix prepared: use `Salesforce/wikitext`, re-cache datasets, then rerun M10A.
 
 ## Execution Boundary
 - Local machine: syntax/static checks only, such as `compileall`, `py_compile`, file-existence checks, and command/config drafting.

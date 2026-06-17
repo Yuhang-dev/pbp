@@ -344,6 +344,7 @@ Run this on the remote machine only, after pulling the latest commit. This produ
 source /root/.pbp_env
 cd /root/autodl-tmp/preference-boundary-pruning
 git pull
+unset OMP_NUM_THREADS
 export OMP_NUM_THREADS=1
 export TOKENIZERS_PARALLELISM=false
 export PYTORCH_CUDA_ALLOC_CONF=expandable_segments:True
@@ -524,6 +525,7 @@ Download/cache the M10A model and datasets first. Run this block separately befo
 source /root/.pbp_env
 cd /root/autodl-tmp/preference-boundary-pruning
 git pull
+unset OMP_NUM_THREADS
 export OMP_NUM_THREADS=1
 export TOKENIZERS_PARALLELISM=false
 export PYTORCH_CUDA_ALLOC_CONF=expandable_segments:True
@@ -541,7 +543,7 @@ cache_dir = os.environ.get("HF_DATASETS_CACHE")
 kwargs = {"cache_dir": cache_dir} if cache_dir else {}
 
 jobs = [
-    ("wikitext", "wikitext-2-raw-v1", "test"),
+    ("Salesforce/wikitext", "wikitext-2-raw-v1", "test"),
     ("allenai/ai2_arc", "ARC-Challenge", "validation"),
     ("Rowan/hellaswag", None, "validation"),
 ]
@@ -561,6 +563,7 @@ After the cache step succeeds, run M10A evaluation offline from the cache:
 source /root/.pbp_env
 cd /root/autodl-tmp/preference-boundary-pruning
 git pull
+unset OMP_NUM_THREADS
 export OMP_NUM_THREADS=1
 export TOKENIZERS_PARALLELISM=false
 export PYTORCH_CUDA_ALLOC_CONF=expandable_segments:True
