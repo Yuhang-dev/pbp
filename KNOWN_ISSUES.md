@@ -6,7 +6,6 @@
 - Local conda Python does not have `torch`, and local execution is no longer used for functional validation. Real tests, model execution, and forward-mask checks must run remotely.
 - The local environment has no bare `python` command on PATH. Syntax/static checks use `D:\anaconda3\python.exe`.
 - Remote environment emitted `libgomp: Invalid value for environment variable OMP_NUM_THREADS`; M2 completed successfully, but the env var should be fixed before larger runs.
-- M10A first dense general-utility attempt failed because current `datasets`/`huggingface_hub` rejects the bare `wikitext` dataset ID. The command/code now uses `Salesforce/wikitext`; rerun M10A after pulling the latest commit and re-caching the dataset.
 
 ## Resolved
 
@@ -24,3 +23,5 @@
 - The RTX PRO 6000 Blackwell remote was upgraded from an incompatible `torch 2.3.0+cu121` environment to a CUDA 13-compatible PyTorch stack before completing M9.
 - M9 boundary Taylor OOMs were resolved by precomputing calibration dense margins, capping successful Taylor scoring at `max_length=2048`, and splitting chosen/rejected Taylor backward passes with `response_micro_batch_size=1`. Runs with `max_length > 2048` OOMed on the `1 x NVIDIA RTX PRO 6000 96GB` remote.
 - M9 remote 1k pilot table completed successfully with 8 rows in `outputs/tables/m9_qwen2p5_1p5b_pilot_1k.csv`.
+- M10A first dense general-utility attempt failed because current `datasets`/`huggingface_hub` rejects the bare `wikitext` dataset ID. The fix switched to `Salesforce/wikitext`, after which M10A completed successfully.
+- M10A remote 20% matched-utility table completed successfully with 5 rows in `outputs/tables/m10a_matched_utility_20p.csv`. All final general-utility metrics were finite, but all 20% pruned models had `matched_utility_flag=false` under the configured thresholds.

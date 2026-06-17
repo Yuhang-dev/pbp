@@ -2,8 +2,8 @@
 
 ## Current Milestone
 Milestone: M10A
-Status: remote commands ready; remote validation pending
-Last updated: 2026-06-17 19:45
+Status: passed
+Last updated: 2026-06-17 20:25
 
 ## Completed Milestones
 - [x] M0: Repository skeleton
@@ -16,13 +16,14 @@ Last updated: 2026-06-17 19:45
 - [x] M7: BCR evaluation for pruned model
 - [x] M8: boundary-aware Taylor scoring
 - [x] M9: pilot experiment table
+- [x] M10A: lightweight matched-utility check for 20% M9 pruned models
 
 ## Current Blockers
-- M10A first dense run failed on the remote because bare dataset ID `wikitext` is rejected by the current `datasets`/`huggingface_hub` stack. Fix prepared: use `Salesforce/wikitext`, re-cache datasets, then rerun M10A.
+- None for M10A.
 
 ## Execution Boundary
 - Local machine: syntax/static checks only, such as `compileall`, `py_compile`, file-existence checks, and command/config drafting.
 - Remote machine: all functional validation, tests, smoke runs, HH-RLHF downloads, Qwen model loading, GPU inference, pruning, and evaluation experiments.
 
 ## Next Action
-Run M10A only on the remote GPU: lightweight general-utility evaluation for dense Qwen2.5-1.5B-Instruct and the 20% M9 masked pruned models. Do not run 10%, 3B/7B, DPO, LoRA, or post-pruning recovery.
+Stop and wait for explicit approval before running 10% general-utility checks, 3B/7B scaling, post-pruning recovery, DPO, LoRA, or any M10B/M11 work.

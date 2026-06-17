@@ -1138,3 +1138,64 @@ Notes:
 - Root cause: current `datasets`/`huggingface_hub` rejects the bare `wikitext` dataset ID.
 - Fix: use canonical dataset ID `Salesforce/wikitext`, re-cache it, and rerun M10A after pulling the fix commit.
 - The remote also emitted `libgomp: Invalid value for environment variable OMP_NUM_THREADS`; M10A commands now unset and reset `OMP_NUM_THREADS`, and `scripts/evaluate_general.py` sanitizes it before importing modules that may load OpenMP.
+
+## Run: 20260617_122215_m10a_summarize_matched_utility_20p
+
+Date: 2026-06-17 20:22 Asia/Shanghai
+Milestone: M10A
+Purpose: Remote lightweight matched-utility check for dense Qwen2.5-1.5B-Instruct and the M9 20% masked pruned models.
+Command: `python scripts/summarize_m10a_matched_utility.py --general-inputs outputs/evals/general_m10a_dense.json outputs/evals/general_m10a_activation_20p.json outputs/evals/general_m10a_boundary_taylor_weighted_20p.json outputs/evals/general_m10a_random_20p.json outputs/evals/general_m10a_magnitude_20p.json --bcr-table outputs/tables/m9_qwen2p5_1p5b_pilot_1k.csv --out outputs/tables/m10a_matched_utility_20p.csv --summary-out outputs/tables/m10a_matched_utility_20p.json --run-name m10a_summarize_matched_utility_20p`
+Config file: `outputs/runs/20260617_122215_m10a_summarize_matched_utility_20p/config.yaml`
+Git commit: `5133a32`
+Model: dense `Qwen/Qwen2.5-1.5B-Instruct`; masked 20% M9 models for `activation`, `boundary_taylor_weighted`, `random`, and `magnitude`
+Dataset: `Salesforce/wikitext` WikiText-2 raw test subset, ARC-Challenge validation subset, HellaSwag validation subset
+Seed: 42
+GPU: remote `1 x NVIDIA RTX PRO 6000 96GB`
+Runtime: 1.131073 seconds for summarization; final general evaluation runs each completed in approximately 18-19 seconds
+Status: success
+
+Inputs:
+- `outputs/evals/general_m10a_dense.json`
+- `outputs/evals/general_m10a_activation_20p.json`
+- `outputs/evals/general_m10a_boundary_taylor_weighted_20p.json`
+- `outputs/evals/general_m10a_random_20p.json`
+- `outputs/evals/general_m10a_magnitude_20p.json`
+- `outputs/tables/m9_qwen2p5_1p5b_pilot_1k.csv`
+
+Outputs:
+- `outputs/tables/m10a_matched_utility_20p.csv`
+- `outputs/tables/m10a_matched_utility_20p.json`
+- `outputs/runs/20260617_122215_m10a_summarize_matched_utility_20p/`
+
+Metrics:
+
+```json
+{
+  "num_general_inputs": 5,
+  "num_rows": 5,
+  "activation_bcr_q25": 0.31328320802,
+  "activation_matched_utility": false,
+  "boundary_bcr_q25": 0.250626566416,
+  "boundary_lower_bcr_q25_than_activation": true,
+  "boundary_matched_utility": false
+}
+```
+
+Table:
+
+```csv
+model,method,ratio,ppl,arc_c,hellaswag,bcr@q25,bcr@0,pref_acc,mean_margin_drop,utility_delta_vs_dense,matched_utility_flag
+Qwen/Qwen2.5-1.5B-Instruct,dense,0,17.1084136551,0.79,0.54,0,0,0.533,0,0,true
+Qwen/Qwen2.5-1.5B-Instruct,activation,0.2,129.035050682,0.2,0.41,0.31328320802,0.358348968105,0.521,0.00918997585267,2.42073281142,false
+Qwen/Qwen2.5-1.5B-Instruct,boundary_taylor_weighted,0.2,48.1106298493,0.69,0.45,0.250626566416,0.31894934334,0.507,0.0147708213948,0.667367831977,false
+Qwen/Qwen2.5-1.5B-Instruct,magnitude,0.2,1865.55360411,0.29,0.27,0.446115288221,0.454033771107,0.53,-0.0578158197812,36.2710166373,false
+Qwen/Qwen2.5-1.5B-Instruct,random,0.2,38.2405834922,0.54,0.46,0.280701754386,0.322701688555,0.523,0.00487568276886,0.521730552838,false
+```
+
+Notes:
+- All five final M10A general-utility JSON inputs loaded and summarized successfully.
+- General utility metrics were finite for all final rows: `ppl`, `arc_c`, and `hellaswag`.
+- `boundary_taylor_weighted` has lower 20% `BCR@q25` than activation: `0.250626566416` vs `0.31328320802`.
+- Under the configured matched-utility thresholds (`max_ppl_relative_delta=0.10`, `max_accuracy_drop=0.05`), all 20% pruned models have `matched_utility_flag=false`. Therefore M10A does not support a strong claim that boundary pruning has lower BCR under similar utility.
+- Compared with activation, `boundary_taylor_weighted` preserved much more utility on this small subset (`ppl=48.11` vs `129.04`, `arc_c=0.69` vs `0.20`, `hellaswag=0.45` vs `0.41`) while also reducing BCR@q25.
+- Stale failed M10A run directories from the earlier bare-`wikitext` issue remain in `outputs/runs/`; final success is established by the five successful general runs and the successful summarization run.

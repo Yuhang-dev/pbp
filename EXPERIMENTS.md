@@ -637,4 +637,6 @@ Expected M10A criteria:
 
 ## Milestone Boundary
 
-M9 has passed after the remote Qwen2.5-1.5B 1k pilot table completed with 8 rows and all 8 BCR inputs summarized successfully on `1 x NVIDIA RTX PRO 6000 96GB`. M10A is approved and limited to the 20% matched-utility check above. Do not run post-pruning recovery, DPO, LoRA, 3B/7B scaling, or 10% general-utility work until explicitly approved.
+M9 has passed after the remote Qwen2.5-1.5B 1k pilot table completed with 8 rows and all 8 BCR inputs summarized successfully on `1 x NVIDIA RTX PRO 6000 96GB`.
+
+M10A has passed after the remote 20% matched-utility table completed with 5 rows. `boundary_taylor_weighted` had lower `BCR@q25` than activation at 20%, but all 20% pruned models had `matched_utility_flag=false` under the configured thresholds. Do not run post-pruning recovery, DPO, LoRA, 3B/7B scaling, 10% general-utility work, M10B, or M11 until explicitly approved.

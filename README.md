@@ -109,3 +109,5 @@ Expected outputs:
 outputs/evals/general_m10a_*.json
 outputs/tables/m10a_matched_utility_20p.csv
 ```
+
+M10A completed on the remote `1 x NVIDIA RTX PRO 6000 96GB` setup. At 20% pruning, `boundary_taylor_weighted` reduced `BCR@q25` versus activation, but all 20% pruned models failed the configured matched-utility thresholds.
