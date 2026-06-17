@@ -983,10 +983,10 @@ python scripts/score_pruning_importance.py \
   --out outputs/scores/qwen2p5_1p5b_general_taylor_m11a_layerwise.json \
   --dtype bfloat16 \
   --batch-size 1 \
-  --max-length 2048 \
+  --max-length 1024 \
   --cache-dir "$HF_HUB_CACHE" \
   --local-files-only \
-  --run-name m11a_score_general_taylor_layerwise
+  --run-name m11a_score_general_taylor_layerwise_1024
 
 python scripts/score_pruning_importance.py \
   --instruct-model "$INSTRUCT_MODEL" \

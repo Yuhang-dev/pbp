@@ -469,10 +469,12 @@ def differentiable_response_logprobs_batch(
     shift_logits = logits[:, :-1, :].float()
     shift_labels = input_ids[:, 1:]
     shift_response_mask = response_mask[:, 1:] & attention_mask[:, 1:].bool()
-    token_logprobs = torch.log_softmax(shift_logits, dim=-1).gather(
-        dim=-1,
-        index=shift_labels.unsqueeze(-1),
-    ).squeeze(-1)
+    token_nll = torch.nn.functional.cross_entropy(
+        shift_logits.reshape(-1, shift_logits.shape[-1]),
+        shift_labels.reshape(-1),
+        reduction="none",
+    ).reshape_as(shift_labels)
+    token_logprobs = -token_nll
     counts = shift_response_mask.sum(dim=1).clamp_min(1)
     length_normalized = (token_logprobs * shift_response_mask.float()).sum(dim=1) / counts
     return length_normalized, attention_mask, {
@@ -494,9 +496,12 @@ def _make_taylor_forward(
 
     def forward(self, x):
         hidden = self.act_fn(self.gate_proj(x)) * self.up_proj(x)
+        if not hidden.requires_grad:
+            hidden.requires_grad_(True)
+        hidden_values = hidden.detach()
 
         def grad_hook(grad):
-            values = hidden.detach() * grad.detach()
+            values = hidden_values * grad.detach()
             if method in {"boundary_taylor_drop", "boundary_taylor_weighted"}:
                 values = values.clamp_min(0.0)
             elif method in {"boundary_taylor_abs", "general_taylor"}:
@@ -586,6 +591,10 @@ def taylor_scores(
     num_taylor_sequences = 0
     num_truncated_sequences = 0
     max_observed_length = 0
+    parameter_requires_grad = [(param, param.requires_grad) for param in model.parameters()]
+    for param, _requires_grad in parameter_requires_grad:
+        param.requires_grad_(False)
+
     try:
         model.eval()
         for batch in tqdm(batched(selected, batch_size), desc=f"{method} scoring"):
@@ -617,24 +626,37 @@ def taylor_scores(
                 # graph peak on long HH-RLHF examples.
                 for response, sign in response_and_signs:
                     model.zero_grad(set_to_none=True)
-                    length_normalized, attention_mask, truncation_info = differentiable_response_logprobs_batch(
-                        model,
-                        tokenizer,
-                        [(formatted_prompt, response)],
-                        device=device,
-                        max_length=max_length,
-                    )
-                    num_taylor_sequences += int(truncation_info["num_sequences"])
-                    num_truncated_sequences += int(truncation_info["num_truncated_sequences"])
-                    max_observed_length = max(max_observed_length, int(truncation_info["max_observed_length"]))
-                    active_mask["attention_mask"] = attention_mask
-                    objective = length_normalized[0] * float(sign)
-                    objective.backward()
-                    active_mask.clear()
+                    length_normalized = None
+                    attention_mask = None
+                    objective = None
+                    try:
+                        length_normalized, attention_mask, truncation_info = differentiable_response_logprobs_batch(
+                            model,
+                            tokenizer,
+                            [(formatted_prompt, response)],
+                            device=device,
+                            max_length=max_length,
+                        )
+                        num_taylor_sequences += int(truncation_info["num_sequences"])
+                        num_truncated_sequences += int(truncation_info["num_truncated_sequences"])
+                        max_observed_length = max(max_observed_length, int(truncation_info["max_observed_length"]))
+                        active_mask["attention_mask"] = attention_mask
+                        objective = length_normalized[0] * float(sign)
+                        objective.backward()
+                    finally:
+                        active_mask.clear()
+                        model.zero_grad(set_to_none=True)
+                        del length_normalized
+                        del attention_mask
+                        del objective
+                        if torch.cuda.is_available() and num_taylor_sequences % 32 == 0:
+                            torch.cuda.empty_cache()
     finally:
         for group in groups:
             module = get_module_by_name(model, group.module_name)
             module.forward = original_forwards[group.module_name]
+        for param, requires_grad in parameter_requires_grad:
+            param.requires_grad_(requires_grad)
 
     group_scores = {
         group.module_name: (sums[group.module_name] / max(1, len(selected))).tolist()
