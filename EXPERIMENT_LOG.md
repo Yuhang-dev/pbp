@@ -750,57 +750,69 @@ Notes:
 - Produced finite scores for all 250880 coupled FFN units and selected 25088 units for a 10% pruning mask.
 - The remote mask comparison printed `random 25088 250880 True`, `magnitude 25088 250880 True`, and `activation 25088 250880 True`; the comparison assertions did not fail, so selected masks differ across methods.
 
-## Run: M7_REMOTE_SMOKE_PENDING_20260617
+## Run: 20260617_024441_m7_bcr_dense_self_smoke
 
-Date: 2026-06-17
+Date: 2026-06-17 02:44
 Milestone: M7
-Purpose: Remote BCR smoke validation for dense self sanity and random 10% masked pruning.
-Command:
-
-```bash
-source /root/.pbp_env
-cd /root/autodl-tmp/preference-boundary-pruning
-git pull
-export OMP_NUM_THREADS=1
-
-python scripts/evaluate_bcr.py \
-  --model Qwen/Qwen2.5-1.5B-Instruct \
-  --base-model Qwen/Qwen2.5-1.5B \
-  --dense-margins outputs/margins/dense_qwen2p5_1p5b_smoke.jsonl \
-  --data data/processed/hh_rlhf_eval.jsonl \
-  --max-samples 20 \
-  --out outputs/evals/bcr_dense_self_smoke.json \
-  --records-out outputs/evals/bcr_dense_self_smoke_records.jsonl \
-  --dtype bfloat16 \
-  --batch-size 1 \
-  --cache-dir "$HF_HUB_CACHE" \
-  --local-files-only \
-  --run-name m7_bcr_dense_self_smoke
-
-python scripts/evaluate_bcr.py \
-  --model outputs/pruned_models/qwen2p5_1p5b_random_mask_10p \
-  --base-model Qwen/Qwen2.5-1.5B \
-  --dense-margins outputs/margins/dense_qwen2p5_1p5b_smoke.jsonl \
-  --data data/processed/hh_rlhf_eval.jsonl \
-  --max-samples 20 \
-  --out outputs/evals/bcr_random_10p_smoke.json \
-  --records-out outputs/evals/bcr_random_10p_smoke_records.jsonl \
-  --dtype bfloat16 \
-  --batch-size 1 \
-  --cache-dir "$HF_HUB_CACHE" \
-  --local-files-only \
-  --run-name m7_bcr_random_10p_smoke
-```
-
-Config file: generated at `outputs/runs/*_m7_bcr_*_smoke/config.yaml` when run remotely
-Git commit: pending
-Model: `Qwen/Qwen2.5-1.5B-Instruct`, plus masked artifact `outputs/pruned_models/qwen2p5_1p5b_random_mask_10p`
+Purpose: Remote dense self BCR sanity smoke test.
+Command: `python scripts/evaluate_bcr.py --model Qwen/Qwen2.5-1.5B-Instruct --base-model Qwen/Qwen2.5-1.5B --dense-margins outputs/margins/dense_qwen2p5_1p5b_smoke.jsonl --data data/processed/hh_rlhf_eval.jsonl --max-samples 20 --out outputs/evals/bcr_dense_self_smoke.json --records-out outputs/evals/bcr_dense_self_smoke_records.jsonl --dtype bfloat16 --batch-size 1 --cache-dir "$HF_HUB_CACHE" --local-files-only --run-name m7_bcr_dense_self_smoke`
+Config file: `outputs/runs/20260617_024441_m7_bcr_dense_self_smoke/config.yaml`
+Git commit: `c50f845`
+Model: `Qwen/Qwen2.5-1.5B-Instruct`
 Reference: `Qwen/Qwen2.5-1.5B`
 Dataset: `data/processed/hh_rlhf_eval.jsonl`
 Seed: 42
 GPU: remote
-Runtime: pending
-Status: remote_pending
+Runtime: 11.083842 seconds
+Status: success
+
+Inputs:
+- `outputs/margins/dense_qwen2p5_1p5b_smoke.jsonl`
+- cached `Qwen/Qwen2.5-1.5B-Instruct`
+- cached `Qwen/Qwen2.5-1.5B`
+
+Outputs:
+- `outputs/evals/bcr_dense_self_smoke.json`
+- `outputs/evals/bcr_dense_self_smoke_records.jsonl`
+- `outputs/runs/20260617_024441_m7_bcr_dense_self_smoke/`
+
+Metrics:
+
+```json
+{
+  "bcr_at_0": 0.0,
+  "bcr_at_q25": 0.0,
+  "bcr_at_q50": 0.0,
+  "bcr_at_q75": 0.0,
+  "coverage_at_0": 0.6,
+  "coverage_at_q25": 0.45,
+  "mean_margin_drop": 0.0,
+  "metrics_finite": true,
+  "num_examples": 20,
+  "preference_accuracy_dense": 0.6,
+  "preference_accuracy_pruned": 0.6
+}
+```
+
+Notes:
+- Executed remotely because the protocol forbids local Qwen model loading.
+- Dense self sanity passed: all BCR thresholds are zero and mean margin drop is zero.
+
+## Run: 20260617_024502_m7_bcr_random_10p_smoke
+
+Date: 2026-06-17 02:45
+Milestone: M7
+Purpose: Remote BCR smoke test for M5 random 10% masked pruning.
+Command: `python scripts/evaluate_bcr.py --model outputs/pruned_models/qwen2p5_1p5b_random_mask_10p --base-model Qwen/Qwen2.5-1.5B --dense-margins outputs/margins/dense_qwen2p5_1p5b_smoke.jsonl --data data/processed/hh_rlhf_eval.jsonl --max-samples 20 --out outputs/evals/bcr_random_10p_smoke.json --records-out outputs/evals/bcr_random_10p_smoke_records.jsonl --dtype bfloat16 --batch-size 1 --cache-dir "$HF_HUB_CACHE" --local-files-only --run-name m7_bcr_random_10p_smoke`
+Config file: `outputs/runs/20260617_024502_m7_bcr_random_10p_smoke/config.yaml`
+Git commit: `c50f845`
+Model: masked `Qwen/Qwen2.5-1.5B-Instruct`
+Reference: `Qwen/Qwen2.5-1.5B`
+Dataset: `data/processed/hh_rlhf_eval.jsonl`
+Seed: 42
+GPU: remote
+Runtime: 10.672482 seconds
+Status: success
 
 Inputs:
 - `outputs/margins/dense_qwen2p5_1p5b_smoke.jsonl`
@@ -810,19 +822,32 @@ Inputs:
 - cached `Qwen/Qwen2.5-1.5B`
 
 Outputs:
-- `outputs/evals/bcr_dense_self_smoke.json`
-- `outputs/evals/bcr_dense_self_smoke_records.jsonl`
 - `outputs/evals/bcr_random_10p_smoke.json`
 - `outputs/evals/bcr_random_10p_smoke_records.jsonl`
-- `outputs/runs/*_m7_bcr_dense_self_smoke/`
-- `outputs/runs/*_m7_bcr_random_10p_smoke/`
+- `outputs/runs/20260617_024502_m7_bcr_random_10p_smoke/`
 
 Metrics:
 
 ```json
-{}
+{
+  "bcr_at_0": 0.08333333333333333,
+  "bcr_at_q25": 0.0,
+  "bcr_at_q50": 0.0,
+  "bcr_at_q75": 0.0,
+  "coverage_at_0": 0.6,
+  "coverage_at_q25": 0.45,
+  "mask_actual_ratio": 0.1,
+  "mask_num_pruned_units": 25088,
+  "mask_total_units": 250880,
+  "mean_margin_drop": -0.08233094341192532,
+  "metrics_finite": true,
+  "num_examples": 20,
+  "preference_accuracy_dense": 0.6,
+  "preference_accuracy_pruned": 0.7
+}
 ```
 
 Notes:
-- Execute remotely only. These commands load Qwen models and compute response-only logprobs.
-- M7 remains blocked until dense-self BCR is zero and random 10% BCR metrics are finite.
+- Executed remotely because the protocol forbids local Qwen model loading, pruning, and GPU inference.
+- Coverage matches the M4 20-example smoke output: `coverage_at_0=0.6`, `coverage_at_q25=0.45`, `coverage_at_q50=0.3`, `coverage_at_q75=0.15`.
+- Random 10% masked pruning has finite BCR metrics and exact mask ratio.
