@@ -790,4 +790,4 @@ M9 has passed after the remote Qwen2.5-1.5B 1k pilot table completed with 8 rows
 
 M10A has passed after the remote 20% matched-utility table completed with 5 rows. `boundary_taylor_weighted` had lower `BCR@q25` than activation at 20%, but all 20% pruned models had `matched_utility_flag=false` under the configured thresholds.
 
-M10B is approved and limited to the section above. Do not run post-pruning recovery, DPO, LoRA, 3B/7B scaling, M11, or any work beyond M10B until explicitly approved.
+M10B has passed as a larger remote smoke/checkpoint run. It produced the all-ratio matched-utility table and mask-distribution table, but no 10% or 20% pruned model satisfied the configured matched-utility thresholds. Under current masking, 20% is not a mild regime. Do not run post-pruning recovery, DPO, LoRA, 3B/7B scaling, M11, new pruning criteria, or additional ablations until explicitly approved.

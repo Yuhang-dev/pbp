@@ -125,3 +125,5 @@ outputs/tables/m10b_mask_distribution.csv
 outputs/tables/m10b_matched_utility_all.csv
 outputs/tables/m10b_matched_utility_summary.json
 ```
+
+M10B completed remotely as a larger smoke/checkpoint run. No 10% or 20% M9 pruned model met the configured matched-utility thresholds, so matched utility is not established under current masking.

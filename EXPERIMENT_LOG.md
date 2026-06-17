@@ -1241,3 +1241,89 @@ Notes:
 - M10B is explicitly limited to Qwen2.5-1.5B M9 artifacts.
 - M10B does not include 3B/7B scaling, DPO, LoRA, post-pruning recovery, or a research-question change.
 - Local validation for this plan is limited to syntax/static checks.
+
+## Run: 20260617_124722_m10b_summarize_matched_utility_all
+
+Date: 2026-06-17 20:47 Asia/Shanghai
+Milestone: M10B
+Purpose: Larger remote matched-utility evaluation for dense plus all M9 10%/20% pruned models, with layer-wise mask distribution reporting.
+Command: `python scripts/summarize_m10b_matched_utility.py --general-inputs outputs/evals/general_m10b_dense.json outputs/evals/general_m10b_random_10p.json outputs/evals/general_m10b_random_20p.json outputs/evals/general_m10b_magnitude_10p.json outputs/evals/general_m10b_magnitude_20p.json outputs/evals/general_m10b_activation_10p.json outputs/evals/general_m10b_activation_20p.json outputs/evals/general_m10b_boundary_taylor_weighted_10p.json outputs/evals/general_m10b_boundary_taylor_weighted_20p.json --bcr-table outputs/tables/m9_qwen2p5_1p5b_pilot_1k.csv --out outputs/tables/m10b_matched_utility_all.csv --summary-out outputs/tables/m10b_matched_utility_summary.json --run-name m10b_summarize_matched_utility_all`
+Config file: `outputs/runs/20260617_124722_m10b_summarize_matched_utility_all/config.yaml`
+Git commit: `051d6b0`
+Model: dense `Qwen/Qwen2.5-1.5B-Instruct`; masked M9 10% and 20% models for `random`, `magnitude`, `activation`, and `boundary_taylor_weighted`
+Dataset: `Salesforce/wikitext` WikiText-2 raw test subset, ARC-Challenge validation subset, HellaSwag validation subset
+Seed: 42
+GPU: remote `1 x NVIDIA RTX PRO 6000 96GB`
+Runtime: summarization 1.231136 seconds
+Status: success
+
+Inputs:
+- `outputs/evals/general_m10b_dense.json`
+- `outputs/evals/general_m10b_random_10p.json`
+- `outputs/evals/general_m10b_random_20p.json`
+- `outputs/evals/general_m10b_magnitude_10p.json`
+- `outputs/evals/general_m10b_magnitude_20p.json`
+- `outputs/evals/general_m10b_activation_10p.json`
+- `outputs/evals/general_m10b_activation_20p.json`
+- `outputs/evals/general_m10b_boundary_taylor_weighted_10p.json`
+- `outputs/evals/general_m10b_boundary_taylor_weighted_20p.json`
+- `outputs/tables/m9_qwen2p5_1p5b_pilot_1k.csv`
+- `outputs/tables/m10b_mask_distribution.csv`
+
+Outputs:
+- `outputs/tables/m10b_matched_utility_all.csv`
+- `outputs/tables/m10b_matched_utility_summary.json`
+- `outputs/tables/m10b_mask_distribution.csv`
+- `outputs/runs/20260617_124722_m10b_summarize_matched_utility_all/`
+
+Metrics:
+
+```json
+{
+  "is_any_10p_pruned_model_matched_utility": false,
+  "is_any_20p_pruned_model_matched_utility": false,
+  "num_matched_pruned_rows": 0,
+  "num_pruned_rows": 8,
+  "num_rows": 9
+}
+```
+
+Matched Utility Table:
+
+```csv
+model,method,ratio,ppl,arc_c,hellaswag,bcr@q25,bcr@0,pref_acc,mean_margin_drop,ppl_relative_delta,arc_c_drop,hellaswag_drop,matched_utility_flag
+Qwen/Qwen2.5-1.5B-Instruct,dense,0,14.1245809566,0.785953177258,0.53,0,0,0.533,0,0,0,0,true
+Qwen/Qwen2.5-1.5B-Instruct,random,0.1,20.3305142528,0.709030100334,0.489,0.203007518797,0.266416510319,0.53,0.0134489890211,0.439371144191,0.0769230769231,0.041,false
+Qwen/Qwen2.5-1.5B-Instruct,random,0.2,33.4476835801,0.531772575251,0.445,0.280701754386,0.322701688555,0.523,0.00487568276886,1.36804785096,0.254180602007,0.085,false
+Qwen/Qwen2.5-1.5B-Instruct,magnitude,0.1,158.343743467,0.344481605351,0.399,0.363408521303,0.390243902439,0.555,-0.0710090043386,10.2105091084,0.441471571906,0.131,false
+Qwen/Qwen2.5-1.5B-Instruct,magnitude,0.2,894.956801396,0.244147157191,0.348,0.446115288221,0.454033771107,0.53,-0.0578158197812,62.3616532868,0.541806020067,0.182,false
+Qwen/Qwen2.5-1.5B-Instruct,activation,0.1,25.6934356454,0.61872909699,0.491,0.15037593985,0.22138836773,0.541,0.000678658303978,0.819058259091,0.167224080268,0.039,false
+Qwen/Qwen2.5-1.5B-Instruct,activation,0.2,110.990412617,0.217391304348,0.388,0.31328320802,0.358348968105,0.521,0.00918997585267,6.85796144735,0.56856187291,0.142,false
+Qwen/Qwen2.5-1.5B-Instruct,boundary_taylor_weighted,0.1,25.1070200871,0.752508361204,0.494,0.160401002506,0.234521575985,0.527,0.0045124203833,0.777540881684,0.0334448160535,0.036,false
+Qwen/Qwen2.5-1.5B-Instruct,boundary_taylor_weighted,0.2,44.9641360864,0.655518394649,0.467,0.250626566416,0.31894934334,0.507,0.0147708213948,2.18339611097,0.130434782609,0.063,false
+```
+
+Summary answers:
+
+```json
+{
+  "is_any_10p_pruned_model_matched_utility": false,
+  "is_any_20p_pruned_model_matched_utility": false,
+  "lowest_bcr_q25_among_matched_utility_models": null,
+  "matched_10p_models": [],
+  "matched_20p_models": [],
+  "twenty_percent_mild_regime_assessment": "20% is not a mild regime under current masking."
+}
+```
+
+Mask distribution notes:
+- `outputs/tables/m10b_mask_distribution.csv` was produced with columns `method`, `ratio`, `layer`, `total_units`, `pruned_units`, and `pruned_ratio`.
+- Activation pruning is highly concentrated in early layers under global masking. Example: activation 10% prunes layer 1 at `0.8512`, layer 2 at `0.6729`, and leaves many later layers near zero; activation 20% prunes layers 0-3 at `0.9077`, `0.9205`, `0.8185`, and `0.6365`.
+
+Notes:
+- M10B is a successful larger smoke/checkpoint run, but matched utility is not established.
+- Under the configured thresholds (`max_ppl_relative_delta=0.10`, `max_accuracy_drop=0.05`), no 10% or 20% pruned model is matched utility.
+- At 10%, `boundary_taylor_weighted` has much better utility preservation than activation on ARC-Challenge (`0.7525` vs `0.6187`) and similar HellaSwag (`0.494` vs `0.491`), while activation has slightly lower `BCR@q25` (`0.1504` vs `0.1604`).
+- At 20%, `boundary_taylor_weighted` has lower `BCR@q25` than activation (`0.2506` vs `0.3133`) and better utility, but is still not matched utility.
+- 20% is not a mild regime under current masking.
+- Stop after M10B; do not run 3B/7B, DPO, LoRA, post-pruning recovery, M11, or additional ablations without explicit approval.
