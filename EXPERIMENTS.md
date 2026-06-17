@@ -314,4 +314,4 @@ Expected smoke criteria:
 
 ## Milestone Boundary
 
-Current M8 work stops after boundary-aware Taylor scoring plus remote smoke verification. Do not run M9 pilot tables, post-pruning recovery, DPO, or LoRA until explicitly approved.
+M8 has passed after boundary-aware Taylor scoring plus remote smoke verification. Do not run M9 pilot tables, post-pruning recovery, DPO, or LoRA until explicitly approved.

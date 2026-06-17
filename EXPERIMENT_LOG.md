@@ -852,44 +852,21 @@ Notes:
 - Coverage matches the M4 20-example smoke output: `coverage_at_0=0.6`, `coverage_at_q25=0.45`, `coverage_at_q50=0.3`, `coverage_at_q75=0.15`.
 - Random 10% masked pruning has finite BCR metrics and exact mask ratio.
 
-## Run: M8_REMOTE_SMOKE_PENDING_20260617
+## Run: 20260617_145653_m8_boundary_taylor_smoke
 
-Date: 2026-06-17
+Date: 2026-06-17 14:56
 Milestone: M8
 Purpose: Remote boundary-aware Taylor scoring smoke validation.
-Command:
-
-```bash
-source /root/.pbp_env
-cd /root/autodl-tmp/preference-boundary-pruning
-git pull
-export OMP_NUM_THREADS=1
-
-python scripts/score_pruning_importance.py \
-  --instruct-model Qwen/Qwen2.5-1.5B-Instruct \
-  --base-model Qwen/Qwen2.5-1.5B \
-  --data data/processed/hh_rlhf_calib.jsonl \
-  --method boundary_taylor_weighted \
-  --max-samples 20 \
-  --tau-mode q25 \
-  --ratio 0.10 \
-  --out outputs/scores/qwen2p5_1p5b_boundary_taylor_weighted_smoke.json \
-  --dtype bfloat16 \
-  --batch-size 1 \
-  --cache-dir "$HF_HUB_CACHE" \
-  --local-files-only \
-  --run-name m8_boundary_taylor_smoke
-```
-
-Config file: generated at `outputs/runs/*_m8_boundary_taylor_smoke/config.yaml` when run remotely
-Git commit: pending
+Command: `python scripts/score_pruning_importance.py --instruct-model Qwen/Qwen2.5-1.5B-Instruct --base-model Qwen/Qwen2.5-1.5B --data data/processed/hh_rlhf_calib.jsonl --method boundary_taylor_weighted --max-samples 20 --tau-mode q25 --ratio 0.10 --out outputs/scores/qwen2p5_1p5b_boundary_taylor_weighted_smoke.json --dtype bfloat16 --batch-size 1 --cache-dir "$HF_HUB_CACHE" --local-files-only --run-name m8_boundary_taylor_smoke`
+Config file: `outputs/runs/20260617_145653_m8_boundary_taylor_smoke/config.yaml`
+Git commit: `e9e4918`
 Model: `Qwen/Qwen2.5-1.5B-Instruct`
 Reference: `Qwen/Qwen2.5-1.5B`
 Dataset: `data/processed/hh_rlhf_calib.jsonl`
 Seed: 42
 GPU: remote
-Runtime: pending
-Status: remote_pending
+Runtime: 13.717101 seconds
+Status: success
 
 Inputs:
 - `data/processed/hh_rlhf_calib.jsonl`
@@ -899,14 +876,42 @@ Inputs:
 
 Outputs:
 - `outputs/scores/qwen2p5_1p5b_boundary_taylor_weighted_smoke.json`
-- `outputs/runs/*_m8_boundary_taylor_smoke/`
+- `outputs/runs/20260617_145653_m8_boundary_taylor_smoke/`
 
 Metrics:
 
 ```json
-{}
+{
+  "actual_ratio": 0.1,
+  "all_scores_zero": false,
+  "batch_size": 1,
+  "max_samples": 20,
+  "max_score": 0.1306699961423874,
+  "mean_score": 0.001690736932569507,
+  "method": "boundary_taylor_weighted",
+  "min_score": 1.4469124835159164e-05,
+  "num_calibration_pairs": 20,
+  "num_groups": 28,
+  "num_nonzero_scores": 250880,
+  "num_pruned_units": 25088,
+  "num_scores": 250880,
+  "num_selected_pairs": 9,
+  "requested_ratio": 0.1,
+  "score_transform": "boundary_taylor_weighted",
+  "scores_finite": true,
+  "selected_fraction": 0.45,
+  "std_score": 0.0011907935751317327,
+  "tau_calib": 0.12528753158359246,
+  "tau_mode": "q25",
+  "taylor_objective": "delta_margin",
+  "total_units": 250880,
+  "weight_max": 3.347670805869662,
+  "weight_mean": 0.9999999999999998,
+  "weight_min": 0.0658627126318743
+}
 ```
 
 Notes:
-- Execute remotely only. This command loads Qwen models and runs gradient-based scoring.
-- M8 remains blocked until remote metrics report finite non-zero scores and the selected mask differs from activation pruning.
+- Executed remotely because the protocol forbids local Qwen model loading and gradient-based scoring.
+- Selected 9 of 20 calibration pairs above `tau_calib=0.12528753158359246` for boundary Taylor scoring.
+- The remote mask comparison printed `boundary 25088 250880 True False` and `activation 25088 250880 True`; the comparison assertions did not fail, so selected masks differ from activation pruning.
