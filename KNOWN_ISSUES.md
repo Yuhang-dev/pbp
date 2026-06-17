@@ -7,6 +7,7 @@
 - The local environment has no bare `python` command on PATH. Syntax/static checks use `D:\anaconda3\python.exe`.
 - Remote environment emitted `libgomp: Invalid value for environment variable OMP_NUM_THREADS`; M2 completed successfully, but the env var should be fixed before larger runs.
 - Transformers emitted a non-fatal `torch_dtype` deprecation warning; switch to `dtype` in a later cleanup.
+- M8 boundary-aware Taylor smoke is remote pending. M8 cannot be marked passed until remote metrics confirm finite non-zero scores and a different selected mask than activation pruning.
 
 ## Resolved
 

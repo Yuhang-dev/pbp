@@ -1,9 +1,9 @@
 # PROGRESS
 
 ## Current Milestone
-Milestone: M7
-Status: passed
-Last updated: 2026-06-17 02:46
+Milestone: M8
+Status: blocked
+Last updated: 2026-06-17 14:36
 
 ## Completed Milestones
 - [x] M0: Repository skeleton
@@ -18,11 +18,11 @@ Last updated: 2026-06-17 02:46
 - [ ] M9: pilot experiment table
 
 ## Current Blockers
-- None for M7.
+- M8 implementation is present, but remote boundary-aware Taylor smoke validation is pending. M8 cannot be marked passed until the remote run confirms finite non-zero scores and selected pruning mask differs from activation pruning.
 
 ## Execution Boundary
 - Local machine: syntax/static checks only, such as `compileall`, `py_compile`, file-existence checks, and command/config drafting.
 - Remote machine: all functional validation, tests, smoke runs, HH-RLHF downloads, Qwen model loading, GPU inference, pruning, and evaluation experiments.
 
 ## Next Action
-Stop and wait for explicit approval to begin M8: boundary-aware Taylor scoring.
+Run the M8 remote smoke command from `EXPERIMENTS.md`, then update M8 to passed if remote metrics and mask comparison succeed.

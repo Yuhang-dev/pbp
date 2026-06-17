@@ -249,6 +249,69 @@ Expected smoke criteria:
 - Random 10% run reports finite numeric metrics, `mask_actual_ratio=0.1`, and non-null `mean_margin_drop`.
 - Coverage values are based on dense margins and therefore match the M4 20-example smoke coverage.
 
+## M8 Remote Smoke
+
+Run this on the remote machine only, after pulling the latest commit:
+
+```bash
+source /root/.pbp_env
+cd /root/autodl-tmp/preference-boundary-pruning
+git pull
+export OMP_NUM_THREADS=1
+
+python scripts/score_pruning_importance.py \
+  --instruct-model Qwen/Qwen2.5-1.5B-Instruct \
+  --base-model Qwen/Qwen2.5-1.5B \
+  --data data/processed/hh_rlhf_calib.jsonl \
+  --method boundary_taylor_weighted \
+  --max-samples 20 \
+  --tau-mode q25 \
+  --ratio 0.10 \
+  --out outputs/scores/qwen2p5_1p5b_boundary_taylor_weighted_smoke.json \
+  --dtype bfloat16 \
+  --batch-size 1 \
+  --cache-dir "$HF_HUB_CACHE" \
+  --local-files-only \
+  --run-name m8_boundary_taylor_smoke
+```
+
+Compare the selected pruning mask against M6 activation pruning:
+
+```bash
+cat outputs/runs/*_m8_boundary_taylor_smoke/metrics.json
+cat outputs/runs/*_m8_boundary_taylor_smoke/status.json
+
+python - <<'PY'
+import json
+
+boundary_path = "outputs/scores/qwen2p5_1p5b_boundary_taylor_weighted_smoke.json"
+activation_path = "outputs/scores/qwen2p5_1p5b_activation_smoke.json"
+
+def load(path):
+    payload = json.load(open(path, encoding="utf-8"))
+    pruned = set()
+    for module_name, mask in payload["masks_by_module"].items():
+        pruned.update((module_name, idx) for idx, value in enumerate(mask) if value == 0)
+    return payload, pruned
+
+boundary, boundary_pruned = load(boundary_path)
+activation, activation_pruned = load(activation_path)
+stats = boundary["score_stats"]
+print("boundary", len(boundary_pruned), stats["num_scores"], stats["scores_finite"], stats["all_scores_zero"])
+print("activation", len(activation_pruned), activation["score_stats"]["num_scores"], activation["score_stats"]["scores_finite"])
+assert stats["scores_finite"]
+assert not stats["all_scores_zero"]
+assert boundary_pruned != activation_pruned
+PY
+```
+
+Expected smoke criteria:
+
+- `status.json` has `"status": "success"`.
+- `metrics.json` reports `scores_finite=true`, `all_scores_zero=false`, `num_scores=250880`, and `actual_ratio=0.1`.
+- `method_info` reports `tau_mode=q25` and `num_selected_pairs > 0`.
+- The mask comparison script succeeds, confirming boundary Taylor selects a different pruning mask than activation pruning.
+
 ## Milestone Boundary
 
-M7 has passed after BCR evaluation support plus remote smoke verification. Do not run M8 Taylor scoring, post-pruning recovery, DPO, or LoRA until explicitly approved.
+Current M8 work stops after boundary-aware Taylor scoring plus remote smoke verification. Do not run M9 pilot tables, post-pruning recovery, DPO, or LoRA until explicitly approved.

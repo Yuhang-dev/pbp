@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import argparse
+import gc
 import json
 import shlex
 import sys
@@ -11,18 +12,32 @@ from typing import Any
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
 
 from pbp.ffn_units import discover_coupled_ffn_unit_groups
+from pbp.chat_format import format_prompt
 from pbp.io import ensure_parent, read_jsonl
 from pbp.logging_utils import RunLogger, finalize_run, initialize_run
+from pbp.logprobs import compute_response_logprobs_batch
+from pbp.margins import compute_preference_margin
 from pbp.pruning import mask_plan_stats
 from pbp.scoring import (
     activation_scores,
     magnitude_scores,
+    nonzero_score_stats,
     random_scores,
     score_stats,
     scores_by_module,
     select_lowest_score_mask_plan,
+    taylor_scores,
 )
-from pbp.utils import model_id_to_slug, set_seed, torch_dtype_from_name
+from pbp.utils import batched, infer_model_device, model_id_to_slug, set_seed, sha256_text, torch_dtype_from_name
+
+
+TAYLOR_METHODS = {
+    "boundary_taylor_drop",
+    "boundary_taylor_weighted",
+    "boundary_taylor_abs",
+    "general_taylor",
+}
+METHOD_CHOICES = ["random", "magnitude", "activation", *sorted(TAYLOR_METHODS)]
 
 
 def parse_args() -> argparse.Namespace:
@@ -30,7 +45,9 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--model", default=None, help="Model ID or local path for random/magnitude/activation scoring.")
     parser.add_argument("--instruct-model", default=None, help="Alias for --model, kept for later milestone commands.")
     parser.add_argument("--data", default=None, help="Calibration JSONL preference pairs. Required for activation.")
-    parser.add_argument("--method", choices=["random", "magnitude", "activation"], required=True)
+    parser.add_argument("--base-model", default=None, help="Reference base model for boundary Taylor dense margins.")
+    parser.add_argument("--dense-margins", default=None, help="Optional precomputed dense margins JSONL for calibration.")
+    parser.add_argument("--method", choices=METHOD_CHOICES, required=True)
     parser.add_argument("--ratio", type=float, default=0.10, help="Fraction selected for pruning in the emitted mask.")
     parser.add_argument("--out", default=None)
     parser.add_argument("--out-dir", default=None)
@@ -45,6 +62,9 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--trust-remote-code", action="store_true")
     parser.add_argument("--batch-size", type=int, default=1)
     parser.add_argument("--max-length", type=int, default=1024)
+    parser.add_argument("--tau-mode", choices=["0", "q25", "q50", "q75", "value", "all"], default="q25")
+    parser.add_argument("--tau-value", type=float, default=None)
+    parser.add_argument("--margin-eps", type=float, default=1e-6)
     parser.add_argument("--text-mode", choices=["prompt", "chosen", "rejected", "chosen_rejected"], default="chosen_rejected")
     parser.add_argument("--no-chat-template", action="store_true")
     return parser.parse_args()
@@ -78,15 +98,19 @@ def validate_args(args: argparse.Namespace) -> None:
         raise ValueError("--batch-size must be positive")
     if args.max_length <= 0:
         raise ValueError("--max-length must be positive")
-    if args.method == "activation" and not args.data:
-        raise ValueError("--data is required for activation scoring")
+    if args.margin_eps <= 0:
+        raise ValueError("--margin-eps must be positive")
+    if args.method in {"activation", *TAYLOR_METHODS} and not args.data:
+        raise ValueError("--data is required for activation and Taylor scoring")
+    if args.method.startswith("boundary_taylor") and not args.base_model and not args.dense_margins:
+        raise ValueError("Boundary Taylor scoring requires --base-model or --dense-margins")
 
 
 def config_for_run(args: argparse.Namespace, model_id: str, out_path: Path) -> dict[str, Any]:
     return {
         "script": "scripts/score_pruning_importance.py",
         "model": model_id,
-        "base_model": None,
+        "base_model": args.base_model,
         "dataset": None,
         "data_path": args.data,
         "seed": args.seed,
@@ -95,13 +119,17 @@ def config_for_run(args: argparse.Namespace, model_id: str, out_path: Path) -> d
         "batch_size": args.batch_size if args.method == "activation" else None,
         "max_samples": args.max_samples,
         "output_path": str(out_path),
-        "notes": f"M6 {args.method} coupled FFN pruning importance scoring",
+        "notes": f"Coupled FFN pruning importance scoring ({args.method})",
         "method": args.method,
         "ratio": args.ratio,
         "device_map": args.device_map,
         "local_files_only": args.local_files_only,
         "text_mode": args.text_mode if args.method == "activation" else None,
-        "max_length": args.max_length if args.method == "activation" else None,
+        "max_length": args.max_length if args.method in {"activation", *TAYLOR_METHODS} else None,
+        "dense_margins": args.dense_margins,
+        "tau_mode": args.tau_mode if args.method in TAYLOR_METHODS else None,
+        "tau_value": args.tau_value if args.method in TAYLOR_METHODS else None,
+        "margin_eps": args.margin_eps if args.method in TAYLOR_METHODS else None,
     }
 
 
@@ -128,6 +156,18 @@ def load_model(model_id: str, args: argparse.Namespace):
     return model
 
 
+def cleanup_model(model: Any) -> None:
+    try:
+        import torch
+
+        del model
+        gc.collect()
+        if torch.cuda.is_available():
+            torch.cuda.empty_cache()
+    except Exception:
+        gc.collect()
+
+
 def load_tokenizer(model_id: str, args: argparse.Namespace):
     try:
         from transformers import AutoTokenizer
@@ -149,9 +189,111 @@ def load_records(args: argparse.Namespace) -> list[dict[str, Any]]:
     records = read_jsonl(args.data)
     if args.max_samples is not None:
         records = records[: args.max_samples]
-    if args.method == "activation" and not records:
-        raise ValueError("No calibration records available for activation scoring")
+    if args.method in {"activation", *TAYLOR_METHODS} and not records:
+        raise ValueError("No calibration records available for scoring")
     return records
+
+
+def score_model_logprobs(
+    *,
+    model: Any,
+    tokenizer: Any,
+    formatted_prompts: list[str],
+    records: list[dict[str, Any]],
+    batch_size: int,
+    desc: str,
+) -> dict[str, dict[str, Any]]:
+    from tqdm import tqdm
+
+    device = infer_model_device(model)
+    expanded: list[tuple[str, str, str, str]] = []
+    outputs_by_id: dict[str, dict[str, Any]] = {}
+    for record, formatted_prompt in zip(records, formatted_prompts, strict=True):
+        outputs_by_id[str(record["id"])] = {"prompt_sha256": sha256_text(formatted_prompt)}
+        expanded.append((str(record["id"]), "chosen", formatted_prompt, str(record["chosen"])))
+        expanded.append((str(record["id"]), "rejected", formatted_prompt, str(record["rejected"])))
+
+    for chunk in tqdm(batched(expanded, batch_size), desc=desc):
+        logprobs = compute_response_logprobs_batch(
+            model,
+            tokenizer,
+            [(item[2], item[3]) for item in chunk],
+            device=device,
+        )
+        for item, logprob in zip(chunk, logprobs, strict=True):
+            example_id, response_key, _, _ = item
+            outputs_by_id[example_id][response_key] = logprob.to_dict()
+    return outputs_by_id
+
+
+def dense_margin_map_from_file(path: str) -> dict[str, float]:
+    out: dict[str, float] = {}
+    for record in read_jsonl(path):
+        out[str(record["id"])] = float(record["delta_dense"])
+    if not out:
+        raise ValueError(f"No dense margins found in {path}")
+    return out
+
+
+def compute_dense_margin_map(
+    *,
+    model: Any,
+    model_id: str,
+    tokenizer: Any,
+    records: list[dict[str, Any]],
+    args: argparse.Namespace,
+) -> dict[str, float]:
+    if args.dense_margins:
+        dense_margins = dense_margin_map_from_file(args.dense_margins)
+        missing = [str(record["id"]) for record in records if str(record["id"]) not in dense_margins]
+        if missing:
+            raise KeyError(f"Precomputed dense margins missing {len(missing)} calibration records")
+        return dense_margins
+
+    formatted_prompts = [
+        format_prompt(
+            str(record["prompt"]),
+            tokenizer,
+            use_chat_template=not args.no_chat_template,
+            add_generation_prompt=True,
+        )
+        for record in records
+    ]
+    dense_by_id = score_model_logprobs(
+        model=model,
+        tokenizer=tokenizer,
+        formatted_prompts=formatted_prompts,
+        records=records,
+        batch_size=args.batch_size,
+        desc=f"{model_id} calibration logprobs",
+    )
+
+    base_tokenizer = load_tokenizer(args.base_model, args)
+    base_model = load_model(args.base_model, args)
+    try:
+        base_by_id = score_model_logprobs(
+            model=base_model,
+            tokenizer=base_tokenizer,
+            formatted_prompts=formatted_prompts,
+            records=records,
+            batch_size=args.batch_size,
+            desc=f"{args.base_model} calibration logprobs",
+        )
+    finally:
+        cleanup_model(base_model)
+
+    dense_margins: dict[str, float] = {}
+    for record in records:
+        example_id = str(record["id"])
+        dense_record = dense_by_id[example_id]
+        base_record = base_by_id[example_id]
+        dense_margins[example_id] = compute_preference_margin(
+            float(dense_record["chosen"]["length_normalized_logprob"]),
+            float(dense_record["rejected"]["length_normalized_logprob"]),
+            float(base_record["chosen"]["length_normalized_logprob"]),
+            float(base_record["rejected"]["length_normalized_logprob"]),
+        )
+    return dense_margins
 
 
 def write_score_artifact(
@@ -227,10 +369,38 @@ def main() -> None:
                 text_mode=args.text_mode,
                 use_chat_template=not args.no_chat_template,
             )
+        elif args.method in TAYLOR_METHODS:
+            tokenizer = load_tokenizer(model_id, args)
+            records = load_records(args)
+            if args.method == "general_taylor":
+                dense_margin_by_id = None
+            else:
+                dense_margin_by_id = compute_dense_margin_map(
+                    model=model,
+                    model_id=model_id,
+                    tokenizer=tokenizer,
+                    records=records,
+                    args=args,
+                )
+            scores, method_info = taylor_scores(
+                model,
+                tokenizer,
+                records,
+                groups,
+                method=args.method,
+                dense_margin_by_id=dense_margin_by_id,
+                batch_size=args.batch_size,
+                max_length=args.max_length,
+                tau_mode=args.tau_mode,
+                tau_value=args.tau_value,
+                margin_eps=args.margin_eps,
+                use_chat_template=not args.no_chat_template,
+            )
         else:
             raise ValueError(f"Unsupported method: {args.method}")
 
         stats = score_stats(scores)
+        stats.update(nonzero_score_stats(scores))
         mask_plan = select_lowest_score_mask_plan(
             groups,
             scores,
@@ -260,6 +430,8 @@ def main() -> None:
             "max_score": float(stats["max_score"]),
             "mean_score": float(stats["mean_score"]),
             "std_score": float(stats["std_score"]),
+            "num_nonzero_scores": int(stats["num_nonzero_scores"]),
+            "all_scores_zero": bool(stats["all_scores_zero"]),
             "requested_ratio": args.ratio,
             "actual_ratio": float(mask_stats["actual_ratio"]),
             "num_pruned_units": int(mask_stats["num_pruned_units"]),
