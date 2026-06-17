@@ -441,7 +441,7 @@ python scripts/score_pruning_importance.py \
   --out outputs/scores/qwen2p5_1p5b_boundary_taylor_weighted_m9_calib_1k.json \
   --dtype bfloat16 \
   --batch-size 1 \
-  --max-length 4096 \
+  --max-length 2048 \
   --cache-dir "$HF_HUB_CACHE" \
   --local-files-only \
   --run-name m9_score_boundary_taylor_weighted_1k

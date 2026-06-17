@@ -499,8 +499,6 @@ def taylor_scores(
     try:
         model.eval()
         for batch in tqdm(batched(selected, batch_size), desc=f"{method} scoring"):
-            expanded: list[tuple[str, str]] = []
-            signs: list[float] = []
             for record in batch:
                 formatted_prompt = format_prompt(
                     str(record["prompt"]),
@@ -518,23 +516,26 @@ def taylor_scores(
                 else:
                     chosen_sign = 1.0
                     rejected_sign = 1.0
-                expanded.append((formatted_prompt, str(record["chosen"])))
-                signs.append(chosen_sign)
-                expanded.append((formatted_prompt, str(record["rejected"])))
-                signs.append(rejected_sign)
 
-            model.zero_grad(set_to_none=True)
-            length_normalized, attention_mask = differentiable_response_logprobs_batch(
-                model,
-                tokenizer,
-                expanded,
-                device=device,
-                max_length=max_length,
-            )
-            active_mask["attention_mask"] = attention_mask
-            sign_tensor = torch.tensor(signs, dtype=length_normalized.dtype, device=length_normalized.device)
-            objective = (length_normalized * sign_tensor).sum()
-            objective.backward()
+                # Keep Taylor response micro-batch at 1. Chosen and rejected share a
+                # calibration pair, but evaluating them together doubles the training
+                # graph peak on long HH-RLHF examples.
+                for response, sign in (
+                    (str(record["chosen"]), chosen_sign),
+                    (str(record["rejected"]), rejected_sign),
+                ):
+                    model.zero_grad(set_to_none=True)
+                    length_normalized, attention_mask = differentiable_response_logprobs_batch(
+                        model,
+                        tokenizer,
+                        [(formatted_prompt, response)],
+                        device=device,
+                        max_length=max_length,
+                    )
+                    active_mask["attention_mask"] = attention_mask
+                    objective = length_normalized[0] * float(sign)
+                    objective.backward()
+                    active_mask.clear()
     finally:
         for group in groups:
             module = get_module_by_name(model, group.module_name)
@@ -550,6 +551,7 @@ def taylor_scores(
             "taylor_objective": "delta_margin" if method != "general_taylor" else "logprob_magnitude",
             "score_transform": method,
             "batch_size": batch_size,
+            "response_micro_batch_size": 1,
             "max_length": max_length,
         }
     )
