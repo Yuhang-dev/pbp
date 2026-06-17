@@ -24,6 +24,9 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--scores", default=None, help="Pruning score artifact produced by score_pruning_importance.py.")
     parser.add_argument("--method", choices=["random"], default="random")
     parser.add_argument("--ratio", type=float, default=None)
+    parser.add_argument("--selection-scope", choices=["global", "layerwise"], default=None)
+    parser.add_argument("--protect-first-n-layers", type=int, default=None)
+    parser.add_argument("--protect-last-n-layers", type=int, default=None)
     parser.add_argument("--out", required=True)
     parser.add_argument("--runs-dir", default="outputs/runs")
     parser.add_argument("--run-name", required=True)
@@ -58,6 +61,10 @@ def validate_args(args: argparse.Namespace) -> None:
         raise ValueError("--max-new-tokens must be positive")
     if args.max_samples is not None and args.max_samples <= 0:
         raise ValueError("--max-samples must be positive when provided")
+    if args.protect_first_n_layers is not None and args.protect_first_n_layers < 0:
+        raise ValueError("--protect-first-n-layers must be non-negative")
+    if args.protect_last_n_layers is not None and args.protect_last_n_layers < 0:
+        raise ValueError("--protect-last-n-layers must be non-negative")
     if args.dry_run_layers <= 0 or args.dry_run_intermediate_size <= 1:
         raise ValueError("--dry-run-layers must be > 0 and --dry-run-intermediate-size must be > 1")
 
@@ -79,6 +86,9 @@ def config_for_run(args: argparse.Namespace) -> dict[str, Any]:
         "method": args.method,
         "ratio": args.ratio,
         "scores": args.scores,
+        "selection_scope": args.selection_scope,
+        "protect_first_n_layers": args.protect_first_n_layers,
+        "protect_last_n_layers": args.protect_last_n_layers,
         "device_map": args.device_map,
         "dry_run": args.dry_run,
         "local_files_only": args.local_files_only,
@@ -116,6 +126,9 @@ def load_score_artifact_mask_plan(
     *,
     ratio: float | None,
     seed: int,
+    selection_scope: str | None,
+    protect_first_n_layers: int | None,
+    protect_last_n_layers: int | None,
 ) -> tuple[str, str, float, list[CoupledFFNUnitGroup], dict[str, Any]]:
     payload = json.loads(Path(score_path).read_text(encoding="utf-8"))
     if payload.get("artifact_type") != "pruning_importance_scores":
@@ -128,6 +141,17 @@ def load_score_artifact_mask_plan(
     artifact_seed = int(payload.get("seed", seed))
     groups = [group_from_dict(record) for record in payload["groups"]]
     selected_ratio = float(ratio if ratio is not None else payload.get("ratio"))
+    selected_scope = str(selection_scope or payload.get("selection_scope") or payload.get("mask_stats", {}).get("selection_scope") or "global")
+    selected_protect_first = int(
+        protect_first_n_layers
+        if protect_first_n_layers is not None
+        else payload.get("protect_first_n_layers", payload.get("mask_stats", {}).get("protect_first_n_layers", 0))
+    )
+    selected_protect_last = int(
+        protect_last_n_layers
+        if protect_last_n_layers is not None
+        else payload.get("protect_last_n_layers", payload.get("mask_stats", {}).get("protect_last_n_layers", 0))
+    )
 
     scores = flatten_scores(payload["scores_by_module"], groups)
     mask_plan = select_lowest_score_mask_plan(
@@ -136,6 +160,9 @@ def load_score_artifact_mask_plan(
         ratio=selected_ratio,
         method=method,
         seed=artifact_seed,
+        selection_scope=selected_scope,
+        protect_first_n_layers=selected_protect_first,
+        protect_last_n_layers=selected_protect_last,
     )
     return model_id, method, selected_ratio, groups, mask_plan
 
@@ -217,6 +244,9 @@ def main() -> None:
                 args.scores,
                 ratio=args.ratio,
                 seed=args.seed,
+                selection_scope=args.selection_scope,
+                protect_first_n_layers=args.protect_first_n_layers,
+                protect_last_n_layers=args.protect_last_n_layers,
             )
             if args.model and args.model != model_id:
                 raise ValueError(f"--model={args.model!r} does not match score artifact model={model_id!r}")
@@ -237,7 +267,14 @@ def main() -> None:
             groups = toy_groups(args.dry_run_layers, args.dry_run_intermediate_size)
             if args.ratio is None:
                 raise ValueError("--ratio is required for dry-run mask pruning")
-            mask_plan = create_global_random_mask_plan(groups, ratio=args.ratio, seed=args.seed)
+            mask_plan = create_global_random_mask_plan(
+                groups,
+                ratio=args.ratio,
+                seed=args.seed,
+                selection_scope=args.selection_scope or "global",
+                protect_first_n_layers=args.protect_first_n_layers or 0,
+                protect_last_n_layers=args.protect_last_n_layers or 0,
+            )
             artifact_info = save_mask_artifacts(
                 out_dir=out_dir,
                 model_id=args.model,
@@ -256,7 +293,14 @@ def main() -> None:
                 raise ValueError("--ratio is required for random mask pruning")
             model, tokenizer = load_model_and_tokenizer(args)
             groups = discover_coupled_ffn_unit_groups(model)
-            mask_plan = create_global_random_mask_plan(groups, ratio=args.ratio, seed=args.seed)
+            mask_plan = create_global_random_mask_plan(
+                groups,
+                ratio=args.ratio,
+                seed=args.seed,
+                selection_scope=args.selection_scope or "global",
+                protect_first_n_layers=args.protect_first_n_layers or 0,
+                protect_last_n_layers=args.protect_last_n_layers or 0,
+            )
             applied_stats = apply_mask_plan_to_model(model, mask_plan)
             logger.stdout(json.dumps({"applied_mask_stats": applied_stats}, ensure_ascii=False))
             artifact_info = save_mask_artifacts(
@@ -293,10 +337,22 @@ def main() -> None:
             "num_pruned_units": int(artifact_info["num_pruned_units"]),
             "num_kept_units": int(artifact_info["num_kept_units"]),
             "actual_ratio": float(artifact_info["actual_ratio"]),
+            "actual_global_ratio": float(artifact_info["actual_global_ratio"]),
+            "actual_unprotected_ratio": float(artifact_info["actual_unprotected_ratio"]),
+            "selection_scope": artifact_info["selection_scope"],
+            "protection": artifact_info.get("protection", "none"),
+            "protect_first_n_layers": int(artifact_info["protect_first_n_layers"]),
+            "protect_last_n_layers": int(artifact_info["protect_last_n_layers"]),
+            "num_protected_layers": int(artifact_info["num_protected_layers"]),
             "num_masked_modules": int(artifact_info["num_masked_modules"]),
             "dry_run": args.dry_run,
             "source_scores": args.scores,
-            "ratio_matches_request": math.isclose(float(artifact_info["actual_ratio"]), float(requested_ratio), rel_tol=0.0, abs_tol=1e-12),
+            "global_ratio_matches_request": math.isclose(
+                float(artifact_info["actual_global_ratio"]), float(requested_ratio), rel_tol=0.0, abs_tol=1e-12
+            ),
+            "unprotected_ratio_matches_request": math.isclose(
+                float(artifact_info["actual_unprotected_ratio"]), float(requested_ratio), rel_tol=0.0, abs_tol=1e-12
+            ),
             **generation_info,
         }
         finalize_run(run_paths, start_monotonic=start, metrics=metrics)

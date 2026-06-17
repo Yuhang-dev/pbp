@@ -211,6 +211,7 @@ def evaluate(args: argparse.Namespace, logger: RunLogger) -> dict[str, Any]:
     ratio = args.ratio
     if ratio is None:
         ratio = mask_config.get("actual_ratio", mask_config.get("ratio", 0.0)) if mask_config else 0.0
+    mask_stats = mask_plan_stats(mask_plan) if mask_plan is not None else None
 
     tokenizer = load_tokenizer(model_load_id, args)
     model = load_model(model_load_id, args)
@@ -261,9 +262,15 @@ def evaluate(args: argparse.Namespace, logger: RunLogger) -> dict[str, Any]:
         "model_arg": args.model,
         "method": method,
         "ratio": float(ratio),
+        "selection_scope": mask_config.get("selection_scope", "dense") if mask_config else "dense",
+        "protection": mask_config.get("protection", "none") if mask_config else "none",
+        "requested_ratio": mask_config.get("requested_ratio", mask_config.get("ratio", 0.0)) if mask_config else 0.0,
+        "actual_global_ratio": mask_stats.get("actual_global_ratio") if mask_stats else 0.0,
+        "actual_unprotected_ratio": mask_stats.get("actual_unprotected_ratio") if mask_stats else 0.0,
+        "num_protected_layers": mask_stats.get("num_protected_layers") if mask_stats else 0,
         "loaded_successfully": True,
         "mask_config": str(mask_config_path) if mask_config_path is not None else None,
-        "mask_stats": mask_plan_stats(mask_plan) if mask_plan is not None else None,
+        "mask_stats": mask_stats,
         "applied_mask_stats": applied_mask_stats,
         "max_length": args.max_length,
         "batch_size": args.batch_size,
@@ -331,6 +338,10 @@ def main() -> None:
             "model": summary["model"],
             "method": summary["method"],
             "ratio": summary["ratio"],
+            "selection_scope": summary["selection_scope"],
+            "protection": summary["protection"],
+            "actual_global_ratio": summary["actual_global_ratio"],
+            "actual_unprotected_ratio": summary["actual_unprotected_ratio"],
             "loaded_successfully": bool(summary["loaded_successfully"]),
             "ppl": float(summary["ppl"]),
             "arc_c": float(summary["arc_c"]),

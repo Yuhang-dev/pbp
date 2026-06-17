@@ -49,6 +49,9 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--dense-margins", default=None, help="Optional precomputed dense margins JSONL for calibration.")
     parser.add_argument("--method", choices=METHOD_CHOICES, required=True)
     parser.add_argument("--ratio", type=float, default=0.10, help="Fraction selected for pruning in the emitted mask.")
+    parser.add_argument("--selection-scope", choices=["global", "layerwise"], default="global")
+    parser.add_argument("--protect-first-n-layers", type=int, default=0)
+    parser.add_argument("--protect-last-n-layers", type=int, default=0)
     parser.add_argument("--out", default=None)
     parser.add_argument("--out-dir", default=None)
     parser.add_argument("--runs-dir", default="outputs/runs")
@@ -114,6 +117,8 @@ def validate_args(args: argparse.Namespace) -> None:
         raise ValueError("--data is required for activation and Taylor scoring")
     if args.method.startswith("boundary_taylor") and not args.base_model and not args.dense_margins:
         raise ValueError("Boundary Taylor scoring requires --base-model or --dense-margins")
+    if args.protect_first_n_layers < 0 or args.protect_last_n_layers < 0:
+        raise ValueError("Protected layer counts must be non-negative")
 
 
 def config_for_run(args: argparse.Namespace, model_id: str, out_path: Path) -> dict[str, Any]:
@@ -133,6 +138,9 @@ def config_for_run(args: argparse.Namespace, model_id: str, out_path: Path) -> d
         "notes": f"Coupled FFN pruning importance scoring ({args.method})",
         "method": args.method,
         "ratio": args.ratio,
+        "selection_scope": args.selection_scope,
+        "protect_first_n_layers": args.protect_first_n_layers,
+        "protect_last_n_layers": args.protect_last_n_layers,
         "device_map": args.device_map,
         "local_files_only": args.local_files_only,
         "text_mode": args.text_mode if args.method == "activation" else None,
@@ -330,6 +338,11 @@ def write_score_artifact(
         "model": model_id,
         "method": args.method,
         "ratio": args.ratio,
+        "selection_scope": mask_plan.get("selection_scope", args.selection_scope),
+        "protect_first_n_layers": mask_plan.get("protect_first_n_layers", args.protect_first_n_layers),
+        "protect_last_n_layers": mask_plan.get("protect_last_n_layers", args.protect_last_n_layers),
+        "protected_layers": mask_plan.get("protected_layers", []),
+        "protection": mask_plan.get("protection"),
         "seed": args.seed,
         "score_semantics": "larger means more important; emitted mask prunes lowest scores",
         "groups": [group.to_dict() for group in groups],
@@ -426,6 +439,9 @@ def main() -> None:
             ratio=args.ratio,
             method=args.method,
             seed=args.seed,
+            selection_scope=args.selection_scope,
+            protect_first_n_layers=args.protect_first_n_layers,
+            protect_last_n_layers=args.protect_last_n_layers,
         )
         write_score_artifact(
             out_path=out_path,
@@ -453,7 +469,14 @@ def main() -> None:
             "all_scores_zero": bool(stats["all_scores_zero"]),
             "requested_ratio": args.ratio,
             "actual_ratio": float(mask_stats["actual_ratio"]),
+            "actual_global_ratio": float(mask_stats["actual_global_ratio"]),
+            "actual_unprotected_ratio": float(mask_stats["actual_unprotected_ratio"]),
             "num_pruned_units": int(mask_stats["num_pruned_units"]),
+            "selection_scope": mask_stats["selection_scope"],
+            "protection": mask_plan.get("protection", "none"),
+            "protect_first_n_layers": int(mask_stats["protect_first_n_layers"]),
+            "protect_last_n_layers": int(mask_stats["protect_last_n_layers"]),
+            "num_protected_layers": int(mask_stats["num_protected_layers"]),
             "max_samples": args.max_samples,
             **method_info,
         }

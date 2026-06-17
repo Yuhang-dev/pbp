@@ -34,9 +34,9 @@ class FakeModel:
         yield "model.layers.1.mlp", self.mlp1
 
 
-def group(module_name: str, intermediate_size: int) -> CoupledFFNUnitGroup:
+def group(module_name: str, intermediate_size: int, layer: int = 0) -> CoupledFFNUnitGroup:
     return CoupledFFNUnitGroup(
-        layer=0,
+        layer=layer,
         module_name=module_name,
         intermediate_size=intermediate_size,
         gate_shape=(intermediate_size, 4),
@@ -57,7 +57,7 @@ def test_discovers_coupled_swiglu_unit_groups_from_weight_shapes():
 
 
 def test_random_mask_plan_prunes_requested_global_unit_count_deterministically():
-    groups = [group("model.layers.0.mlp", 8), group("model.layers.1.mlp", 8)]
+    groups = [group("model.layers.0.mlp", 8, 0), group("model.layers.1.mlp", 8, 1)]
 
     first = create_global_random_mask_plan(groups, ratio=0.25, seed=123)
     second = create_global_random_mask_plan(groups, ratio=0.25, seed=123)
@@ -71,6 +71,25 @@ def test_random_mask_plan_prunes_requested_global_unit_count_deterministically()
     assert stats["num_kept_units"] == 12
     assert {len(mask) for mask in first["masks_by_module"].values()} == {8}
     assert sum(value == 0 for mask in first["masks_by_module"].values() for value in mask) == 4
+
+
+def test_random_mask_plan_layerwise_protection_accounts_for_global_and_unprotected_ratio():
+    groups = [group("model.layers.0.mlp", 8, 0), group("model.layers.1.mlp", 8, 1)]
+
+    mask_plan = create_global_random_mask_plan(
+        groups,
+        ratio=0.25,
+        seed=123,
+        selection_scope="layerwise",
+        protect_first_n_layers=1,
+    )
+    stats = mask_plan_stats(mask_plan)
+
+    assert mask_plan["masks_by_module"]["model.layers.0.mlp"] == [1] * 8
+    assert sum(value == 0 for value in mask_plan["masks_by_module"]["model.layers.1.mlp"]) == 2
+    assert stats["actual_global_ratio"] == pytest.approx(0.125)
+    assert stats["actual_unprotected_ratio"] == pytest.approx(0.25)
+    assert stats["num_protected_layers"] == 1
 
 
 def test_masked_swiglu_forward_zeroes_pruned_intermediate_units():

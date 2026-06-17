@@ -62,6 +62,67 @@ def test_select_lowest_score_mask_plan_prunes_exact_global_ratio():
     assert mask_plan["masks_by_module"]["model.layers.1.mlp"] == [0, 1, 1]
 
 
+def test_select_lowest_score_mask_plan_layerwise_prunes_each_layer():
+    groups = [group("model.layers.0.mlp", 0, 4), group("model.layers.1.mlp", 1, 4)]
+    scores = [
+        UnitScore(0, "model.layers.0.mlp", 0, 0.4),
+        UnitScore(0, "model.layers.0.mlp", 1, 0.1),
+        UnitScore(0, "model.layers.0.mlp", 2, 0.2),
+        UnitScore(0, "model.layers.0.mlp", 3, 0.3),
+        UnitScore(1, "model.layers.1.mlp", 0, 0.8),
+        UnitScore(1, "model.layers.1.mlp", 1, 0.7),
+        UnitScore(1, "model.layers.1.mlp", 2, 0.6),
+        UnitScore(1, "model.layers.1.mlp", 3, 0.5),
+    ]
+
+    mask_plan = select_lowest_score_mask_plan(
+        groups,
+        scores,
+        ratio=0.5,
+        method="activation",
+        seed=7,
+        selection_scope="layerwise",
+    )
+
+    assert mask_plan["selection_scope"] == "layerwise"
+    assert mask_plan["num_pruned_units"] == 4
+    assert mask_plan["actual_global_ratio"] == pytest.approx(0.5)
+    assert mask_plan["actual_unprotected_ratio"] == pytest.approx(0.5)
+    assert mask_plan["masks_by_module"]["model.layers.0.mlp"] == [1, 0, 0, 1]
+    assert mask_plan["masks_by_module"]["model.layers.1.mlp"] == [1, 1, 0, 0]
+
+
+def test_select_lowest_score_mask_plan_protects_first_layer():
+    groups = [group("model.layers.0.mlp", 0, 4), group("model.layers.1.mlp", 1, 4)]
+    scores = [
+        UnitScore(0, "model.layers.0.mlp", 0, 0.0),
+        UnitScore(0, "model.layers.0.mlp", 1, 0.1),
+        UnitScore(0, "model.layers.0.mlp", 2, 0.2),
+        UnitScore(0, "model.layers.0.mlp", 3, 0.3),
+        UnitScore(1, "model.layers.1.mlp", 0, 0.4),
+        UnitScore(1, "model.layers.1.mlp", 1, 0.5),
+        UnitScore(1, "model.layers.1.mlp", 2, 0.6),
+        UnitScore(1, "model.layers.1.mlp", 3, 0.7),
+    ]
+
+    mask_plan = select_lowest_score_mask_plan(
+        groups,
+        scores,
+        ratio=0.5,
+        method="activation",
+        seed=7,
+        selection_scope="layerwise",
+        protect_first_n_layers=1,
+    )
+
+    assert mask_plan["protected_layers"] == [0]
+    assert mask_plan["protection"] == "protect_first1"
+    assert mask_plan["masks_by_module"]["model.layers.0.mlp"] == [1, 1, 1, 1]
+    assert mask_plan["masks_by_module"]["model.layers.1.mlp"] == [0, 0, 1, 1]
+    assert mask_plan["actual_global_ratio"] == pytest.approx(0.25)
+    assert mask_plan["actual_unprotected_ratio"] == pytest.approx(0.5)
+
+
 def test_score_stats_and_scores_by_module_are_finite():
     scores = [
         UnitScore(0, "model.layers.0.mlp", 0, 1.0),

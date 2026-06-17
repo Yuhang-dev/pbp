@@ -307,11 +307,18 @@ def compute_records(args: argparse.Namespace, logger: RunLogger) -> tuple[list[d
             )
         )
 
+    stats = mask_plan_stats(mask_plan) if mask_plan is not None else None
     method_info = {
         "model_load_id": model_load_id,
         "mask_config": str(mask_config_path) if mask_config_path is not None else None,
         "mask_method": mask_config.get("method") if mask_config else None,
-        "mask_stats": mask_plan_stats(mask_plan) if mask_plan is not None else None,
+        "selection_scope": mask_config.get("selection_scope") if mask_config else None,
+        "protection": mask_config.get("protection") if mask_config else None,
+        "requested_ratio": mask_config.get("requested_ratio", mask_config.get("ratio")) if mask_config else None,
+        "actual_global_ratio": stats.get("actual_global_ratio") if stats else None,
+        "actual_unprotected_ratio": stats.get("actual_unprotected_ratio") if stats else None,
+        "num_protected_layers": stats.get("num_protected_layers") if stats else None,
+        "mask_stats": stats,
         "used_base_logprobs": bool(args.base_logprobs),
         "num_examples": len(records),
     }

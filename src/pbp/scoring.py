@@ -35,6 +35,84 @@ def _num_pruned(total_units: int, ratio: float) -> int:
     return max(1, min(count, total_units - 1))
 
 
+def _protected_layer_set(
+    groups: list[CoupledFFNUnitGroup],
+    *,
+    protect_first_n_layers: int = 0,
+    protect_last_n_layers: int = 0,
+) -> set[int]:
+    if protect_first_n_layers < 0 or protect_last_n_layers < 0:
+        raise ValueError("Protected layer counts must be non-negative")
+    layers = sorted({group.layer for group in groups})
+    protected = set(layers[:protect_first_n_layers])
+    if protect_last_n_layers:
+        protected.update(layers[-protect_last_n_layers:])
+    return protected
+
+
+def _score_coverage_check(groups: list[CoupledFFNUnitGroup], scores: list[UnitScore]) -> None:
+    expected = {(group.module_name, unit_index) for group in groups for unit_index in range(group.intermediate_size)}
+    observed = {(item.module_name, item.unit_index) for item in scores}
+    if observed != expected:
+        missing = len(expected - observed)
+        extra = len(observed - expected)
+        raise ValueError(f"Score coverage mismatch: missing={missing}, extra={extra}")
+
+
+def _empty_masks(groups: list[CoupledFFNUnitGroup]) -> dict[str, list[int]]:
+    return {group.module_name: [1] * group.intermediate_size for group in groups}
+
+
+def _mask_plan_from_pruned(
+    groups: list[CoupledFFNUnitGroup],
+    *,
+    pruned: set[tuple[str, int]],
+    ratio: float,
+    method: str,
+    seed: int,
+    selection_scope: str,
+    protect_first_n_layers: int,
+    protect_last_n_layers: int,
+    protected_layers: set[int],
+) -> dict[str, Any]:
+    masks_by_module = _empty_masks(groups)
+    for module_name, unit_index in pruned:
+        masks_by_module[module_name][unit_index] = 0
+
+    total_units = sum(group.intermediate_size for group in groups)
+    unprotected_units = sum(group.intermediate_size for group in groups if group.layer not in protected_layers)
+    num_pruned = len(pruned)
+    if protect_first_n_layers and protect_last_n_layers:
+        protection = f"protect_first{protect_first_n_layers}_last{protect_last_n_layers}"
+    elif protect_first_n_layers:
+        protection = f"protect_first{protect_first_n_layers}"
+    elif protect_last_n_layers:
+        protection = f"protect_last{protect_last_n_layers}"
+    else:
+        protection = "none"
+    return {
+        "method": method,
+        "ratio": ratio,
+        "requested_ratio": ratio,
+        "seed": seed,
+        "total_units": total_units,
+        "unprotected_units": unprotected_units,
+        "num_pruned_units": num_pruned,
+        "num_pruned_unprotected_units": num_pruned,
+        "actual_ratio": num_pruned / total_units if total_units else 0.0,
+        "actual_global_ratio": num_pruned / total_units if total_units else 0.0,
+        "actual_unprotected_ratio": num_pruned / unprotected_units if unprotected_units else 0.0,
+        "selection_scope": selection_scope,
+        "selection_rule": "prune_lowest_score",
+        "protect_first_n_layers": protect_first_n_layers,
+        "protect_last_n_layers": protect_last_n_layers,
+        "protected_layers": sorted(protected_layers),
+        "num_protected_layers": len(protected_layers),
+        "protection": protection,
+        "masks_by_module": masks_by_module,
+    }
+
+
 def scores_by_module(scores: list[UnitScore]) -> dict[str, list[float]]:
     out: dict[str, list[float]] = {}
     for item in scores:
@@ -363,11 +441,15 @@ def differentiable_response_logprobs_batch(
 
     sequences: list[list[int]] = []
     masks: list[list[int]] = []
+    num_truncated = 0
+    max_observed_length = 0
     for formatted_prompt, response in prompt_response_pairs:
         input_ids, response_mask = build_response_token_mask(tokenizer, formatted_prompt, response)
+        max_observed_length = max(max_observed_length, len(input_ids))
         if max_length is not None and len(input_ids) > max_length:
             input_ids = input_ids[-max_length:]
             response_mask = response_mask[-max_length:]
+            num_truncated += 1
         sequences.append(input_ids)
         masks.append(response_mask)
 
@@ -393,7 +475,12 @@ def differentiable_response_logprobs_batch(
     ).squeeze(-1)
     counts = shift_response_mask.sum(dim=1).clamp_min(1)
     length_normalized = (token_logprobs * shift_response_mask.float()).sum(dim=1) / counts
-    return length_normalized, attention_mask
+    return length_normalized, attention_mask, {
+        "num_sequences": len(prompt_response_pairs),
+        "num_truncated_sequences": num_truncated,
+        "max_observed_length": max_observed_length,
+        "max_length": max_length,
+    }
 
 
 def _make_taylor_forward(
@@ -496,6 +583,9 @@ def taylor_scores(
         )
 
     device = infer_model_device(model)
+    num_taylor_sequences = 0
+    num_truncated_sequences = 0
+    max_observed_length = 0
     try:
         model.eval()
         for batch in tqdm(batched(selected, batch_size), desc=f"{method} scoring"):
@@ -507,31 +597,36 @@ def taylor_scores(
                     add_generation_prompt=True,
                 )
                 weight = float(method_info["weight_by_id"][str(record["id"])])
-                if method == "boundary_taylor_weighted":
+                if method == "general_taylor":
+                    response_and_signs = ((str(record["chosen"]), 1.0),)
+                elif method == "boundary_taylor_weighted":
                     chosen_sign = weight
                     rejected_sign = -weight
+                    response_and_signs = ((str(record["chosen"]), chosen_sign), (str(record["rejected"]), rejected_sign))
                 elif method in {"boundary_taylor_drop", "boundary_taylor_abs"}:
                     chosen_sign = 1.0
                     rejected_sign = -1.0
+                    response_and_signs = ((str(record["chosen"]), chosen_sign), (str(record["rejected"]), rejected_sign))
                 else:
                     chosen_sign = 1.0
                     rejected_sign = 1.0
+                    response_and_signs = ((str(record["chosen"]), chosen_sign), (str(record["rejected"]), rejected_sign))
 
                 # Keep Taylor response micro-batch at 1. Chosen and rejected share a
                 # calibration pair, but evaluating them together doubles the training
                 # graph peak on long HH-RLHF examples.
-                for response, sign in (
-                    (str(record["chosen"]), chosen_sign),
-                    (str(record["rejected"]), rejected_sign),
-                ):
+                for response, sign in response_and_signs:
                     model.zero_grad(set_to_none=True)
-                    length_normalized, attention_mask = differentiable_response_logprobs_batch(
+                    length_normalized, attention_mask, truncation_info = differentiable_response_logprobs_batch(
                         model,
                         tokenizer,
                         [(formatted_prompt, response)],
                         device=device,
                         max_length=max_length,
                     )
+                    num_taylor_sequences += int(truncation_info["num_sequences"])
+                    num_truncated_sequences += int(truncation_info["num_truncated_sequences"])
+                    max_observed_length = max(max_observed_length, int(truncation_info["max_observed_length"]))
                     active_mask["attention_mask"] = attention_mask
                     objective = length_normalized[0] * float(sign)
                     objective.backward()
@@ -553,6 +648,11 @@ def taylor_scores(
             "batch_size": batch_size,
             "response_micro_batch_size": 1,
             "max_length": max_length,
+            "text_mode": "chosen" if method == "general_taylor" else "chosen_rejected",
+            "num_taylor_sequences": num_taylor_sequences,
+            "num_truncated_sequences": num_truncated_sequences,
+            "truncation_occurred": num_truncated_sequences > 0,
+            "max_observed_length": max_observed_length,
         }
     )
     return flatten_scores(group_scores, groups), clean_info
@@ -565,31 +665,47 @@ def select_lowest_score_mask_plan(
     ratio: float,
     method: str,
     seed: int,
+    selection_scope: str = "global",
+    protect_first_n_layers: int = 0,
+    protect_last_n_layers: int = 0,
 ) -> dict[str, Any]:
-    total_units = sum(group.intermediate_size for group in groups)
-    num_pruned = _num_pruned(total_units, ratio)
-    expected = {(group.module_name, unit_index) for group in groups for unit_index in range(group.intermediate_size)}
-    observed = {(item.module_name, item.unit_index) for item in scores}
-    if observed != expected:
-        missing = len(expected - observed)
-        extra = len(observed - expected)
-        raise ValueError(f"Score coverage mismatch: missing={missing}, extra={extra}")
+    validate_pruning_ratio(ratio)
+    if selection_scope not in {"global", "layerwise"}:
+        raise ValueError("--selection-scope must be 'global' or 'layerwise'")
+    _score_coverage_check(groups, scores)
 
-    ranked = sorted(scores, key=lambda item: (item.score, item.layer, item.module_name, item.unit_index))
-    pruned = {(item.module_name, item.unit_index) for item in ranked[:num_pruned]}
-    masks_by_module: dict[str, list[int]] = {}
-    for group in groups:
-        masks_by_module[group.module_name] = [
-            0 if (group.module_name, unit_index) in pruned else 1 for unit_index in range(group.intermediate_size)
-        ]
+    protected_layers = _protected_layer_set(
+        groups,
+        protect_first_n_layers=protect_first_n_layers,
+        protect_last_n_layers=protect_last_n_layers,
+    )
+    unprotected_layers = sorted({group.layer for group in groups if group.layer not in protected_layers})
+    if not unprotected_layers:
+        raise ValueError("All layers are protected; no units are available for pruning")
 
-    return {
-        "method": method,
-        "ratio": ratio,
-        "seed": seed,
-        "total_units": total_units,
-        "num_pruned_units": num_pruned,
-        "actual_ratio": num_pruned / total_units,
-        "masks_by_module": masks_by_module,
-        "selection_rule": "prune_lowest_score",
-    }
+    pruned: set[tuple[str, int]] = set()
+    if selection_scope == "global":
+        eligible_scores = [item for item in scores if item.layer not in protected_layers]
+        num_pruned = _num_pruned(len(eligible_scores), ratio)
+        ranked = sorted(eligible_scores, key=lambda item: (item.score, item.layer, item.module_name, item.unit_index))
+        pruned.update((item.module_name, item.unit_index) for item in ranked[:num_pruned])
+    else:
+        for layer in unprotected_layers:
+            layer_scores = [item for item in scores if item.layer == layer]
+            if not layer_scores:
+                raise ValueError(f"No scores available for layer {layer}")
+            num_layer_pruned = _num_pruned(len(layer_scores), ratio)
+            ranked = sorted(layer_scores, key=lambda item: (item.score, item.module_name, item.unit_index))
+            pruned.update((item.module_name, item.unit_index) for item in ranked[:num_layer_pruned])
+
+    return _mask_plan_from_pruned(
+        groups,
+        pruned=pruned,
+        ratio=ratio,
+        method=method,
+        seed=seed,
+        selection_scope=selection_scope,
+        protect_first_n_layers=protect_first_n_layers,
+        protect_last_n_layers=protect_last_n_layers,
+        protected_layers=protected_layers,
+    )

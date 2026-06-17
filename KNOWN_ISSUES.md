@@ -6,6 +6,7 @@
 - Local conda Python does not have `torch`, and local execution is no longer used for functional validation. Real tests, model execution, and forward-mask checks must run remotely.
 - The local environment has no bare `python` command on PATH. Syntax/static checks use `D:\anaconda3\python.exe`.
 - Remote environment emitted `libgomp: Invalid value for environment variable OMP_NUM_THREADS`; M2 completed successfully, but the env var should be fixed before larger runs.
+- M10B showed no matched-utility setting under global coupled-FFN pruning at 10% or 20%. Global selection can over-prune early layers, so M11A introduces layer-wise and protected layer-wise selection to find a utility-preserving pruning regime.
 
 ## Resolved
 

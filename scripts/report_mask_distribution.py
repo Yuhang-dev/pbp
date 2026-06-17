@@ -17,7 +17,19 @@ from pbp.io import ensure_parent
 from pbp.logging_utils import RunLogger, finalize_run, initialize_run
 
 
-TABLE_COLUMNS = ["method", "ratio", "layer", "total_units", "pruned_units", "pruned_ratio"]
+TABLE_COLUMNS = [
+    "method",
+    "selection_scope",
+    "protection",
+    "ratio",
+    "requested_ratio",
+    "actual_global_ratio",
+    "actual_unprotected_ratio",
+    "layer",
+    "total_units",
+    "pruned_units",
+    "pruned_ratio",
+]
 
 
 def parse_args() -> argparse.Namespace:
@@ -84,7 +96,12 @@ def rows_for_mask_dir(mask_dir: str | Path) -> list[dict[str, str]]:
     config = json.loads(config_path.read_text(encoding="utf-8"))
     masks = json.loads(masks_path.read_text(encoding="utf-8"))
     method = str(config.get("method", "unknown"))
-    ratio = float(config.get("actual_ratio", config.get("ratio", 0.0)))
+    ratio = float(config.get("requested_ratio", config.get("ratio", 0.0)))
+    requested_ratio = float(config.get("requested_ratio", ratio))
+    actual_global_ratio = float(config.get("actual_global_ratio", config.get("actual_ratio", 0.0)))
+    actual_unprotected_ratio = float(config.get("actual_unprotected_ratio", config.get("actual_ratio", 0.0)))
+    selection_scope = str(config.get("selection_scope", "global"))
+    protection = str(config.get("protection", "none"))
     module_to_layer = _module_to_layer(config)
 
     rows: list[dict[str, str]] = []
@@ -98,14 +115,22 @@ def rows_for_mask_dir(mask_dir: str | Path) -> list[dict[str, str]]:
         rows.append(
             {
                 "method": method,
+                "selection_scope": selection_scope,
+                "protection": protection,
                 "ratio": _fmt_ratio(ratio),
+                "requested_ratio": _fmt_ratio(requested_ratio),
+                "actual_global_ratio": _fmt_ratio(actual_global_ratio),
+                "actual_unprotected_ratio": _fmt_ratio(actual_unprotected_ratio),
                 "layer": str(layer),
                 "total_units": str(total_units),
                 "pruned_units": str(pruned_units),
                 "pruned_ratio": _fmt_ratio(pruned_ratio),
             }
         )
-    return sorted(rows, key=lambda row: (row["method"], float(row["ratio"]), int(row["layer"])))
+    return sorted(
+        rows,
+        key=lambda row: (row["method"], row["selection_scope"], row["protection"], float(row["ratio"]), int(row["layer"])),
+    )
 
 
 def write_csv(rows: list[dict[str, str]], out_path: Path) -> None:
@@ -154,7 +179,16 @@ def main() -> None:
         rows: list[dict[str, str]] = []
         for mask_dir in args.mask_dirs:
             rows.extend(rows_for_mask_dir(mask_dir))
-        rows = sorted(rows, key=lambda row: (row["method"], float(row["ratio"]), int(row["layer"])))
+        rows = sorted(
+            rows,
+            key=lambda row: (
+                row["method"],
+                row["selection_scope"],
+                row["protection"],
+                float(row["ratio"]),
+                int(row["layer"]),
+            ),
+        )
         write_csv(rows, out_path)
         summary = {
             "num_mask_dirs": len(args.mask_dirs),

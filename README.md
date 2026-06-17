@@ -16,6 +16,7 @@ This repository currently supports:
 - Lightweight general-utility evaluation for M10A matched-utility checks.
 - M10A matched-utility table summarization.
 - M10B stale run-status cleanup, layer-wise mask distribution reporting, and all-ratio matched-utility summarization.
+- M11A layer-wise/protected layer-wise pruning selection and utility/BCR summarization.
 - Unit tests for response masking and margin/coverage computation.
 
 Physical dimension-changing pruning is not implemented yet. The current MVP uses masked structured pruning.
@@ -127,3 +128,15 @@ outputs/tables/m10b_matched_utility_summary.json
 ```
 
 M10B completed remotely as a larger smoke/checkpoint run. No 10% or 20% M9 pruned model met the configured matched-utility thresholds, so matched utility is not established under current masking.
+
+## M11A Layer-Wise Pruning
+
+M11A is remote-only and limited to Qwen2.5-1.5B-Instruct. It introduces `--selection-scope layerwise` plus optional protected layers to find a utility-preserving pruning regime before comparing BCR.
+
+Expected outputs:
+
+```text
+outputs/tables/m11a_layerwise_utility_bcr.csv
+outputs/tables/m11a_mask_distribution.csv
+outputs/tables/m11a_summary.json
+```

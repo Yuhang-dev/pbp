@@ -1,9 +1,9 @@
 # PROGRESS
 
 ## Current Milestone
-Milestone: M10B
-Status: passed
-Last updated: 2026-06-17 21:15
+Milestone: M11A
+Status: implementation ready; remote smoke pending
+Last updated: 2026-06-17 21:45
 
 ## Completed Milestones
 - [x] M0: Repository skeleton
@@ -20,11 +20,11 @@ Last updated: 2026-06-17 21:15
 - [x] M10B: larger matched-utility check and mask distribution for all M9 pruned models
 
 ## Current Blockers
-- None for M10B. Current empirical blocker for the research claim: no 10% or 20% M9 pruned model satisfies the configured matched-utility thresholds.
+- M11A has not yet been run on the remote GPU. Current empirical blocker for the research claim: global pruning did not find matched utility at 10% or 20%.
 
 ## Execution Boundary
 - Local machine: syntax/static checks only, such as `compileall`, `py_compile`, file-existence checks, and command/config drafting.
 - Remote machine: all functional validation, tests, smoke runs, HH-RLHF downloads, Qwen model loading, GPU inference, pruning, and evaluation experiments.
 
 ## Next Action
-Stop and wait for explicit approval before running M11, 3B/7B scaling, DPO, LoRA, post-pruning recovery, new pruning criteria, or additional ablations.
+Run M11A only on the remote GPU: first the random layerwise 2% smoke, then Priority 1 layerwise grid if smoke passes. Do not run M11B, 3B/7B, PAT, Wanda, DPO/LoRA recovery, safety datasets, UltraFeedback, or work beyond M11A.

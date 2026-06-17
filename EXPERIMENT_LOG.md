@@ -1327,3 +1327,42 @@ Notes:
 - At 20%, `boundary_taylor_weighted` has lower `BCR@q25` than activation (`0.2506` vs `0.3133`) and better utility, but is still not matched utility.
 - 20% is not a mild regime under current masking.
 - Stop after M10B; do not run 3B/7B, DPO, LoRA, post-pruning recovery, M11, or additional ablations without explicit approval.
+
+## Run: M11A_REMOTE_PLAN_20260617_2145
+
+Date: 2026-06-17 21:45 Asia/Shanghai
+Milestone: M11A
+Purpose: Introduce utility-preserving layer-wise pruning selection to find a matched-utility regime before comparing BCR across pruning criteria.
+Command: See `EXPERIMENTS.md` section `M11A Utility-Preserving Layer-wise Pruning Regime`.
+Config file: none
+Git commit: pending
+Model: `Qwen/Qwen2.5-1.5B-Instruct`
+Dataset: M9 HH-RLHF calibration/eval split plus `Salesforce/wikitext`, ARC-Challenge, and HellaSwag utility subsets
+Seed: 42
+GPU: remote `1 x NVIDIA RTX PRO 6000 96GB`
+Runtime: not run yet
+Status: pending remote smoke
+
+Planned outputs:
+- `outputs/tables/m11a_layerwise_utility_bcr.csv`
+- `outputs/tables/m11a_mask_distribution.csv`
+- `outputs/tables/m11a_summary.json`
+
+Metrics:
+
+```json
+{
+  "smoke_method": "random",
+  "smoke_selection_scope": "layerwise",
+  "smoke_ratio": 0.02,
+  "priority1_methods": ["random", "activation", "general_taylor", "boundary_taylor_weighted"],
+  "priority1_ratios": [0.02, 0.05, 0.075, 0.10],
+  "remote_validation": "pending"
+}
+```
+
+Notes:
+- M10B showed no matched utility under global pruning and severe layer imbalance, so M11A keeps the research question unchanged while changing the pruning selection regime.
+- M11A implements `--selection-scope layerwise`, `--protect-first-n-layers`, and `--protect-last-n-layers`.
+- `general_taylor` is included as the utility-preserving Taylor baseline and now records truncation metadata.
+- M11A does not include 3B/7B scaling, PAT, Wanda, DPO/LoRA recovery, safety datasets, UltraFeedback, or M11B.

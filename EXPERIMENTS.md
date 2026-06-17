@@ -784,10 +784,322 @@ Expected M10B criteria:
 - `outputs/tables/m10b_matched_utility_summary.json` explicitly answers whether any 10% or 20% pruned model is matched utility, identifies the lowest `BCR@q25` among matched-utility models when one exists, and says `20% is not a mild regime under current masking.` if no 20% model is matched.
 - Stop after M10B.
 
+## M11A Utility-Preserving Layer-wise Pruning Regime
+
+M11A is remote-only and uses Qwen2.5-1.5B-Instruct only. Do not run 3B/7B, DPO/LoRA recovery, PAT, Wanda, safety datasets, UltraFeedback, or M11B.
+
+M11A changes the pruning selection regime, not the research question. It adds:
+
+- `--selection-scope layerwise`
+- `--protect-first-n-layers`
+- `--protect-last-n-layers`
+
+The default remains global unless `--selection-scope layerwise` is explicitly set. M11A must use layerwise selection.
+
+Prepare the remote shell and dataset cache:
+
+```bash
+source /root/.pbp_env
+cd /root/autodl-tmp/preference-boundary-pruning
+git pull
+unset OMP_NUM_THREADS
+export OMP_NUM_THREADS=1
+unset HF_DATASETS_OFFLINE
+export TOKENIZERS_PARALLELISM=false
+export PYTORCH_CUDA_ALLOC_CONF=expandable_segments:True
+
+python - <<'PY'
+import os
+from datasets import load_dataset
+
+cache_dir = os.environ.get("HF_DATASETS_CACHE")
+kwargs = {"cache_dir": cache_dir} if cache_dir else {}
+jobs = [
+    ("Salesforce/wikitext", "wikitext-2-raw-v1", "test"),
+    ("allenai/ai2_arc", "ARC-Challenge", "validation"),
+    ("Rowan/hellaswag", None, "validation"),
+]
+for name, config, split in jobs:
+    if config is None:
+        dataset = load_dataset(name, split=split, **kwargs)
+    else:
+        dataset = load_dataset(name, config, split=split, **kwargs)
+    print(name, config, split, len(dataset))
+PY
+export HF_DATASETS_OFFLINE=1
+```
+
+### M11A Smoke
+
+Run this smoke before any full grid. It checks random layerwise 2%, protected-layer mask logic, utility evaluation, BCR evaluation, and finite outputs.
+
+```bash
+INSTRUCT_MODEL="Qwen/Qwen2.5-1.5B-Instruct"
+BASE_LOGPROBS="outputs/logprobs/base_qwen2p5_1p5b_m9_eval_1k.jsonl"
+DENSE_MARGINS_EVAL="outputs/margins/dense_qwen2p5_1p5b_m9_eval_1k.jsonl"
+DATA_DIR="data/processed/m9_pilot"
+
+python scripts/score_pruning_importance.py \
+  --model "$INSTRUCT_MODEL" \
+  --method random \
+  --ratio 0.02 \
+  --selection-scope layerwise \
+  --out outputs/scores/qwen2p5_1p5b_random_m11a_smoke.json \
+  --dtype bfloat16 \
+  --cache-dir "$HF_HUB_CACHE" \
+  --local-files-only \
+  --run-name m11a_score_random_layerwise_2p_smoke
+
+python scripts/apply_mask_pruning.py \
+  --scores outputs/scores/qwen2p5_1p5b_random_m11a_smoke.json \
+  --ratio 0.02 \
+  --selection-scope layerwise \
+  --out outputs/pruned_models/qwen2p5_1p5b_random_layerwise_2p_m11a_smoke \
+  --run-name m11a_apply_random_layerwise_2p_smoke
+
+python scripts/apply_mask_pruning.py \
+  --scores outputs/scores/qwen2p5_1p5b_random_m11a_smoke.json \
+  --ratio 0.02 \
+  --selection-scope layerwise \
+  --protect-first-n-layers 4 \
+  --protect-last-n-layers 2 \
+  --out outputs/pruned_models/qwen2p5_1p5b_random_layerwise_protect_first4_last2_2p_m11a_smoke \
+  --run-name m11a_apply_random_layerwise_protect_first4_last2_2p_smoke
+
+python scripts/report_mask_distribution.py \
+  --mask-dirs \
+    outputs/pruned_models/qwen2p5_1p5b_random_layerwise_2p_m11a_smoke \
+    outputs/pruned_models/qwen2p5_1p5b_random_layerwise_protect_first4_last2_2p_m11a_smoke \
+  --out outputs/tables/m11a_smoke_mask_distribution.csv \
+  --summary-out outputs/tables/m11a_smoke_mask_distribution.json \
+  --run-name m11a_smoke_mask_distribution
+
+python scripts/evaluate_general.py \
+  --model outputs/pruned_models/qwen2p5_1p5b_random_layerwise_2p_m11a_smoke \
+  --out outputs/evals/general_m11a_smoke_random_layerwise_2p.json \
+  --dtype bfloat16 \
+  --batch-size 1 \
+  --max-length 2048 \
+  --ppl-samples 64 \
+  --arc-samples 100 \
+  --hellaswag-samples 100 \
+  --cache-dir "$HF_HUB_CACHE" \
+  --dataset-cache-dir "$HF_DATASETS_CACHE" \
+  --local-files-only \
+  --datasets-local-files-only \
+  --run-name m11a_general_smoke_random_layerwise_2p
+
+python scripts/evaluate_bcr.py \
+  --model outputs/pruned_models/qwen2p5_1p5b_random_layerwise_2p_m11a_smoke \
+  --base-logprobs "$BASE_LOGPROBS" \
+  --dense-margins "$DENSE_MARGINS_EVAL" \
+  --data "$DATA_DIR/hh_rlhf_eval.jsonl" \
+  --max-samples 100 \
+  --out outputs/evals/bcr_m11a_smoke_random_layerwise_2p.json \
+  --records-out outputs/evals/bcr_m11a_smoke_random_layerwise_2p_records.jsonl \
+  --dtype bfloat16 \
+  --batch-size 1 \
+  --cache-dir "$HF_HUB_CACHE" \
+  --local-files-only \
+  --run-name m11a_bcr_smoke_random_layerwise_2p
+```
+
+Smoke checks:
+
+```bash
+cat outputs/tables/m11a_smoke_mask_distribution.csv
+cat outputs/evals/general_m11a_smoke_random_layerwise_2p.json
+cat outputs/evals/bcr_m11a_smoke_random_layerwise_2p.json
+cat outputs/runs/*_m11a_bcr_smoke_random_layerwise_2p/status.json
+```
+
+Expected smoke criteria:
+
+- Layerwise smoke has approximately 2% pruned units in every unprotected layer.
+- Protected smoke has zero pruned units in first 4 and last 2 layers.
+- General utility and BCR outputs are finite.
+
+### M11A Priority 1 Grid
+
+Run this only after smoke passes. This evaluates `selection_scope=layerwise`, methods `random`, `activation`, `general_taylor`, and `boundary_taylor_weighted`, ratios `0.02`, `0.05`, `0.075`, and `0.10`.
+
+```bash
+INSTRUCT_MODEL="Qwen/Qwen2.5-1.5B-Instruct"
+BASE_LOGPROBS="outputs/logprobs/base_qwen2p5_1p5b_m9_eval_1k.jsonl"
+DENSE_MARGINS_EVAL="outputs/margins/dense_qwen2p5_1p5b_m9_eval_1k.jsonl"
+DENSE_MARGINS_CALIB="outputs/margins/dense_qwen2p5_1p5b_m9_calib_1k.jsonl"
+DATA_DIR="data/processed/m9_pilot"
+
+python scripts/evaluate_general.py \
+  --model "$INSTRUCT_MODEL" \
+  --method dense \
+  --ratio 0.0 \
+  --out outputs/evals/general_m11a_dense.json \
+  --dtype bfloat16 \
+  --batch-size 2 \
+  --max-length 2048 \
+  --ppl-samples 500 \
+  --arc-samples 500 \
+  --hellaswag-samples 1000 \
+  --cache-dir "$HF_HUB_CACHE" \
+  --dataset-cache-dir "$HF_DATASETS_CACHE" \
+  --local-files-only \
+  --datasets-local-files-only \
+  --run-name m11a_general_dense
+
+python scripts/score_pruning_importance.py \
+  --model "$INSTRUCT_MODEL" \
+  --method random \
+  --ratio 0.02 \
+  --selection-scope layerwise \
+  --out outputs/scores/qwen2p5_1p5b_random_m11a_layerwise.json \
+  --dtype bfloat16 \
+  --cache-dir "$HF_HUB_CACHE" \
+  --local-files-only \
+  --run-name m11a_score_random_layerwise
+
+python scripts/score_pruning_importance.py \
+  --model "$INSTRUCT_MODEL" \
+  --data "$DATA_DIR/hh_rlhf_calib.jsonl" \
+  --method activation \
+  --max-samples 1000 \
+  --ratio 0.02 \
+  --selection-scope layerwise \
+  --out outputs/scores/qwen2p5_1p5b_activation_m11a_layerwise.json \
+  --dtype bfloat16 \
+  --batch-size 1 \
+  --max-length 2048 \
+  --cache-dir "$HF_HUB_CACHE" \
+  --local-files-only \
+  --run-name m11a_score_activation_layerwise
+
+python scripts/score_pruning_importance.py \
+  --model "$INSTRUCT_MODEL" \
+  --data "$DATA_DIR/hh_rlhf_calib.jsonl" \
+  --method general_taylor \
+  --max-samples 1000 \
+  --ratio 0.02 \
+  --selection-scope layerwise \
+  --out outputs/scores/qwen2p5_1p5b_general_taylor_m11a_layerwise.json \
+  --dtype bfloat16 \
+  --batch-size 1 \
+  --max-length 2048 \
+  --cache-dir "$HF_HUB_CACHE" \
+  --local-files-only \
+  --run-name m11a_score_general_taylor_layerwise
+
+python scripts/score_pruning_importance.py \
+  --instruct-model "$INSTRUCT_MODEL" \
+  --dense-margins "$DENSE_MARGINS_CALIB" \
+  --data "$DATA_DIR/hh_rlhf_calib.jsonl" \
+  --method boundary_taylor_weighted \
+  --max-samples 1000 \
+  --tau-mode q25 \
+  --ratio 0.02 \
+  --selection-scope layerwise \
+  --out outputs/scores/qwen2p5_1p5b_boundary_taylor_weighted_m11a_layerwise.json \
+  --dtype bfloat16 \
+  --batch-size 1 \
+  --max-length 2048 \
+  --cache-dir "$HF_HUB_CACHE" \
+  --local-files-only \
+  --run-name m11a_score_boundary_taylor_weighted_layerwise
+
+declare -A SCORE_BY_METHOD
+SCORE_BY_METHOD[random]="outputs/scores/qwen2p5_1p5b_random_m11a_layerwise.json"
+SCORE_BY_METHOD[activation]="outputs/scores/qwen2p5_1p5b_activation_m11a_layerwise.json"
+SCORE_BY_METHOD[general_taylor]="outputs/scores/qwen2p5_1p5b_general_taylor_m11a_layerwise.json"
+SCORE_BY_METHOD[boundary_taylor_weighted]="outputs/scores/qwen2p5_1p5b_boundary_taylor_weighted_m11a_layerwise.json"
+
+METHODS=(random activation general_taylor boundary_taylor_weighted)
+RATIOS=("0.02:2p" "0.05:5p" "0.075:7p5" "0.10:10p")
+GENERAL_INPUTS=(outputs/evals/general_m11a_dense.json)
+BCR_INPUTS=()
+MASK_DIRS=()
+
+for method in "${METHODS[@]}"; do
+  for pair in "${RATIOS[@]}"; do
+    ratio="${pair%%:*}"
+    label="${pair##*:}"
+    out_dir="outputs/pruned_models/qwen2p5_1p5b_${method}_layerwise_${label}_m11a"
+    general_out="outputs/evals/general_m11a_${method}_layerwise_${label}.json"
+    bcr_out="outputs/evals/bcr_m11a_${method}_layerwise_${label}.json"
+
+    python scripts/apply_mask_pruning.py \
+      --scores "${SCORE_BY_METHOD[$method]}" \
+      --ratio "$ratio" \
+      --selection-scope layerwise \
+      --out "$out_dir" \
+      --run-name "m11a_apply_${method}_layerwise_${label}"
+
+    python scripts/evaluate_general.py \
+      --model "$out_dir" \
+      --out "$general_out" \
+      --dtype bfloat16 \
+      --batch-size 2 \
+      --max-length 2048 \
+      --ppl-samples 500 \
+      --arc-samples 500 \
+      --hellaswag-samples 1000 \
+      --cache-dir "$HF_HUB_CACHE" \
+      --dataset-cache-dir "$HF_DATASETS_CACHE" \
+      --local-files-only \
+      --datasets-local-files-only \
+      --run-name "m11a_general_${method}_layerwise_${label}"
+
+    python scripts/evaluate_bcr.py \
+      --model "$out_dir" \
+      --base-logprobs "$BASE_LOGPROBS" \
+      --dense-margins "$DENSE_MARGINS_EVAL" \
+      --data "$DATA_DIR/hh_rlhf_eval.jsonl" \
+      --max-samples 1000 \
+      --out "$bcr_out" \
+      --records-out "outputs/evals/bcr_m11a_${method}_layerwise_${label}_records.jsonl" \
+      --dtype bfloat16 \
+      --batch-size 1 \
+      --cache-dir "$HF_HUB_CACHE" \
+      --local-files-only \
+      --run-name "m11a_bcr_${method}_layerwise_${label}"
+
+    GENERAL_INPUTS+=("$general_out")
+    BCR_INPUTS+=("$bcr_out")
+    MASK_DIRS+=("$out_dir")
+  done
+done
+
+python scripts/report_mask_distribution.py \
+  --mask-dirs "${MASK_DIRS[@]}" \
+  --out outputs/tables/m11a_mask_distribution.csv \
+  --summary-out outputs/tables/m11a_mask_distribution.json \
+  --run-name m11a_mask_distribution_priority1
+
+python scripts/summarize_m11a_layerwise.py \
+  --general-inputs "${GENERAL_INPUTS[@]}" \
+  --bcr-inputs "${BCR_INPUTS[@]}" \
+  --mask-distribution outputs/tables/m11a_mask_distribution.csv \
+  --out outputs/tables/m11a_layerwise_utility_bcr.csv \
+  --summary-out outputs/tables/m11a_summary.json \
+  --run-name m11a_summarize_priority1
+```
+
+Check M11A Priority 1 outputs:
+
+```bash
+cat outputs/tables/m11a_layerwise_utility_bcr.csv
+cat outputs/tables/m11a_summary.json
+cat outputs/tables/m11a_mask_distribution.csv | head -80
+cat outputs/runs/*_m11a_summarize_priority1/status.json
+cat outputs/runs/*_m11a_summarize_priority1/metrics.json
+```
+
+Stop after Priority 1 if it finds a clear matched-utility regime. Only run protected-layer Priority 2/3 after inspecting `outputs/tables/m11a_summary.json` and deciding that layerwise without protection is insufficient.
+
 ## Milestone Boundary
 
 M9 has passed after the remote Qwen2.5-1.5B 1k pilot table completed with 8 rows and all 8 BCR inputs summarized successfully on `1 x NVIDIA RTX PRO 6000 96GB`.
 
 M10A has passed after the remote 20% matched-utility table completed with 5 rows. `boundary_taylor_weighted` had lower `BCR@q25` than activation at 20%, but all 20% pruned models had `matched_utility_flag=false` under the configured thresholds.
 
-M10B has passed as a larger remote smoke/checkpoint run. It produced the all-ratio matched-utility table and mask-distribution table, but no 10% or 20% pruned model satisfied the configured matched-utility thresholds. Under current masking, 20% is not a mild regime. Do not run post-pruning recovery, DPO, LoRA, 3B/7B scaling, M11, new pruning criteria, or additional ablations until explicitly approved.
+M10B has passed as a larger remote smoke/checkpoint run. It produced the all-ratio matched-utility table and mask-distribution table, but no 10% or 20% pruned model satisfied the configured matched-utility thresholds. Under current global masking, 20% is not a mild regime.
+
+M11A is approved and limited to the layerwise/protected-layerwise regime above. Do not run post-pruning recovery, DPO, LoRA, 3B/7B scaling, PAT, Wanda, M11B, safety datasets, UltraFeedback, or work beyond M11A until explicitly approved.

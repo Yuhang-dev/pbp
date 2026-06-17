@@ -36,20 +36,30 @@ def test_mask_distribution_reports_layer_pruning_ratios(tmp_path):
     rows = rows_for_mask_dir(mask_dir)
 
     assert rows == [
-        {
-            "method": "activation",
-            "ratio": "0.25",
-            "layer": "0",
-            "total_units": "4",
-            "pruned_units": "2",
+            {
+                "method": "activation",
+                "selection_scope": "global",
+                "protection": "none",
+                "ratio": "0.25",
+                "requested_ratio": "0.25",
+                "actual_global_ratio": "0.25",
+                "actual_unprotected_ratio": "0.25",
+                "layer": "0",
+                "total_units": "4",
+                "pruned_units": "2",
             "pruned_ratio": "0.5",
         },
-        {
-            "method": "activation",
-            "ratio": "0.25",
-            "layer": "1",
-            "total_units": "4",
-            "pruned_units": "1",
+            {
+                "method": "activation",
+                "selection_scope": "global",
+                "protection": "none",
+                "ratio": "0.25",
+                "requested_ratio": "0.25",
+                "actual_global_ratio": "0.25",
+                "actual_unprotected_ratio": "0.25",
+                "layer": "1",
+                "total_units": "4",
+                "pruned_units": "1",
             "pruned_ratio": "0.25",
         },
     ]
