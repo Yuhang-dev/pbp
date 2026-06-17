@@ -1419,3 +1419,42 @@ Decision rule:
 - A hybrid setting must be `matched=true`.
 - It must reduce `BCR@q25` below the corresponding utility-only baseline at the same ratio and BCR sample size.
 - Matched candidates and their corresponding baselines receive 5k HH-RLHF BCR evaluation.
+
+## Run: M12B_5K_BCR_RESULT_20260618
+
+Date: 2026-06-18
+Milestone: M12B
+Purpose: Validate M12 hybrid candidates with 5k HH-RLHF BCR and compare against corresponding utility-only baselines at the same sample size.
+Model: `Qwen/Qwen2.5-1.5B-Instruct`
+GPU: remote `1 x NVIDIA RTX PRO 6000 96GB`
+Status: success
+
+Outputs:
+- `outputs/tables/m12b_alpha_sweep_with_5k.csv`
+- `outputs/tables/m12b_hybrid_summary_5k.json`
+
+5k BCR matched summary:
+
+```csv
+method,ratio,alpha,ppl,arc_c,hellaswag,bcr@q25,bcr@0,matched
+activation,0.02,,14.7347494948,0.789297658863,0.522,0.00981404958678,0.0689388071263,true
+activation,0.03,,15.1048264422,0.785953177258,0.523,0.0191115702479,0.0836560805577,true
+activation_boundary,0.02,0.5,14.6407891687,0.775919732441,0.524,0.010847107438,0.0631293570875,true
+activation_boundary,0.03,0.25,15.0313971974,0.789297658863,0.523,0.0185950413223,0.0797831138652,true
+general_taylor,0.02,,14.79006991,0.759197324415,0.518,0.0139462809917,0.0673896204493,true
+general_taylor,0.03,,15.1799800208,0.76254180602,0.512,0.025826446281,0.0898528272657,true
+general_taylor_boundary,0.02,0.25,14.7506546524,0.769230769231,0.525,0.0103305785124,0.0650658404338,true
+general_taylor_boundary,0.03,2.0,15.171464188,0.775919732441,0.521,0.0206611570248,0.085592563904,true
+```
+
+Decision-rule results:
+- `general_taylor_boundary` satisfies the M12 decision rule at 2% and 3% in 5k BCR. Best 2% alpha is `0.25`, reducing `BCR@q25` from `0.0139462809917` to `0.0103305785124` (about 25.9% relative). Best 3% alpha is `2.0`, reducing `BCR@q25` from `0.025826446281` to `0.0206611570248` (20.0% relative).
+- `activation_boundary` does not beat activation at 2% in 5k BCR. The best 2% activation baseline remains lower (`0.00981404958678`) than all activation-boundary 2% hybrids.
+- `activation_boundary` slightly beats activation at 3% with alpha `0.25`, reducing `BCR@q25` from `0.0191115702479` to `0.0185950413223` (about 2.7% relative), but the effect is small.
+- The 1k best result, `activation_boundary` 2% alpha `1.0`, did not survive 5k validation as the absolute best setting.
+- The strongest absolute matched 5k `BCR@q25` remains `activation` 2%, while the strongest hybrid 5k `BCR@q25` is `general_taylor_boundary` 2% alpha `0.25`.
+
+Interpretation:
+- M12B supports the hybrid concept for the `general_taylor` utility baseline, where adding boundary risk consistently lowers BCR under matched utility.
+- M12B does not support a broad claim that hybrid always beats activation. Activation remains a very strong utility baseline at 2%.
+- Any paper claim should be scoped to "hybrid can reduce BCR relative to its corresponding utility-only baseline, especially for Taylor utility importance", not "hybrid dominates all baselines."

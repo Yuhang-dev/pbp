@@ -2,8 +2,8 @@
 
 ## Current Milestone
 Milestone: M12
-Status: implementation ready; remote hybrid alpha sweep pending
-Last updated: 2026-06-17 23:20
+Status: completed; 5k BCR validation analyzed
+Last updated: 2026-06-18 01:20
 
 ## Completed Milestones
 - [x] M0: Repository skeleton
@@ -19,13 +19,14 @@ Last updated: 2026-06-17 23:20
 - [x] M10A: lightweight matched-utility check for 20% M9 pruned models
 - [x] M10B: larger matched-utility check and mask distribution for all M9 pruned models
 - [x] M11A: layerwise mild pruning regime and utility/BCR sweep
+- [x] M12: hybrid utility-boundary pruning alpha sweep with 5k HH-RLHF BCR validation
 
 ## Current Blockers
-- M11A found matched utility only at 2% layerwise pruning. Activation 2% had the lowest `BCR@q25` among matched settings, so M12 must test whether hybrid utility-boundary scores can reduce BCR below the corresponding utility-only baseline under matched utility.
+- M12B 5k validation is mixed. `general_taylor_boundary` consistently lowers `BCR@q25` versus `general_taylor` at 2% and 3% under matched utility. `activation_boundary` only slightly improves activation at 3% (`0.01860` vs `0.01911`) and does not beat activation at 2%. The strongest absolute matched 5k `BCR@q25` remains activation 2% (`0.00981`), while the best hybrid is `general_taylor_boundary` 2% alpha 0.25 (`0.01033`).
 
 ## Execution Boundary
 - Local machine: syntax/static checks only, such as `compileall`, `py_compile`, file-existence checks, and command/config drafting.
 - Remote machine: all functional validation, tests, smoke runs, HH-RLHF downloads, Qwen model loading, GPU inference, pruning, and evaluation experiments.
 
 ## Next Action
-Run M12 only on the remote GPU: compose hybrid scores from existing activation/general_taylor and boundary_taylor_weighted score artifacts, sweep alpha at 2%, 3%, and 5%, then run 5k HH-RLHF BCR only for matched candidates and their corresponding utility baselines. Do not run M13, 3B/7B, PAT, Wanda, DPO/LoRA recovery, safety datasets, UltraFeedback, or work beyond M12.
+Stop after M12B and decide the next experiment. Do not run M13, 3B/7B, PAT, Wanda, DPO/LoRA recovery, safety datasets, UltraFeedback, or work beyond M12 without explicit approval.
