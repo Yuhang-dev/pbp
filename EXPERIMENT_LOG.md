@@ -997,3 +997,74 @@ Notes:
 - Failure reason: CUDA OOM while boundary scoring computed calibration dense margins inline with `--base-model`.
 - Follow-up fix: precompute calibration dense margins with `scripts/compute_dense_margins.py`, then rerun boundary scoring with `--dense-margins outputs/margins/dense_qwen2p5_1p5b_m9_calib_1k.jsonl`.
 - The failed boundary apply/evaluate/summarize runs after this are downstream failures from the missing boundary score artifact.
+
+## Run: 20260617_170656_m9_summarize_pilot_1k
+
+Date: 2026-06-17 17:06
+Milestone: M9
+Purpose: Remote first Qwen2.5-1.5B pilot table across 4 pruning methods and 2 ratios.
+Command: `python scripts/summarize_results.py --inputs outputs/evals/bcr_qwen2p5_1p5b_{random,magnitude,activation,boundary_taylor_weighted}_{10p,20p}_m9_1k.json --out outputs/tables/m9_qwen2p5_1p5b_pilot_1k.csv --summary-out outputs/tables/m9_qwen2p5_1p5b_pilot_1k.json --run-name m9_summarize_pilot_1k`
+Config file: `outputs/runs/20260617_170656_m9_summarize_pilot_1k/config.yaml`
+Git commit: `a4a6311`
+Model: `Qwen/Qwen2.5-1.5B-Instruct`
+Reference: `Qwen/Qwen2.5-1.5B`
+Dataset: `data/processed/m9_pilot/hh_rlhf_eval.jsonl`
+Seed: 42
+GPU: remote RTX PRO 6000 96GB
+Runtime: 1.150619 seconds
+Status: success
+
+Inputs:
+- `outputs/evals/bcr_qwen2p5_1p5b_random_10p_m9_1k.json`
+- `outputs/evals/bcr_qwen2p5_1p5b_magnitude_10p_m9_1k.json`
+- `outputs/evals/bcr_qwen2p5_1p5b_activation_10p_m9_1k.json`
+- `outputs/evals/bcr_qwen2p5_1p5b_boundary_taylor_weighted_10p_m9_1k.json`
+- `outputs/evals/bcr_qwen2p5_1p5b_random_20p_m9_1k.json`
+- `outputs/evals/bcr_qwen2p5_1p5b_magnitude_20p_m9_1k.json`
+- `outputs/evals/bcr_qwen2p5_1p5b_activation_20p_m9_1k.json`
+- `outputs/evals/bcr_qwen2p5_1p5b_boundary_taylor_weighted_20p_m9_1k.json`
+
+Outputs:
+- `outputs/tables/m9_qwen2p5_1p5b_pilot_1k.csv`
+- `outputs/tables/m9_qwen2p5_1p5b_pilot_1k.json`
+- `outputs/runs/20260617_170656_m9_summarize_pilot_1k/`
+
+Metrics:
+
+```json
+{
+  "num_input_files": 8,
+  "num_rows": 8,
+  "coverage_at_0": 0.533,
+  "coverage_at_q25": 0.399,
+  "bcr_at_q25": {
+    "activation_10p": 0.15037593985,
+    "activation_20p": 0.31328320802,
+    "boundary_taylor_weighted_10p": 0.160401002506,
+    "boundary_taylor_weighted_20p": 0.250626566416,
+    "magnitude_10p": 0.363408521303,
+    "magnitude_20p": 0.446115288221,
+    "random_10p": 0.203007518797,
+    "random_20p": 0.280701754386
+  }
+}
+```
+
+Table:
+
+```csv
+model,method,ratio,coverage@0,coverage@q25,bcr@0,bcr@q25,pref_acc,mean_margin_drop
+Qwen/Qwen2.5-1.5B-Instruct,activation,0.1,0.533,0.399,0.22138836773,0.15037593985,0.541,0.000678658303978
+Qwen/Qwen2.5-1.5B-Instruct,activation,0.2,0.533,0.399,0.358348968105,0.31328320802,0.521,0.00918997585267
+Qwen/Qwen2.5-1.5B-Instruct,boundary_taylor_weighted,0.1,0.533,0.399,0.234521575985,0.160401002506,0.527,0.0045124203833
+Qwen/Qwen2.5-1.5B-Instruct,boundary_taylor_weighted,0.2,0.533,0.399,0.31894934334,0.250626566416,0.507,0.0147708213948
+Qwen/Qwen2.5-1.5B-Instruct,magnitude,0.1,0.533,0.399,0.390243902439,0.363408521303,0.555,-0.0710090043386
+Qwen/Qwen2.5-1.5B-Instruct,magnitude,0.2,0.533,0.399,0.454033771107,0.446115288221,0.53,-0.0578158197812
+Qwen/Qwen2.5-1.5B-Instruct,random,0.1,0.533,0.399,0.266416510319,0.203007518797,0.53,0.0134489890211
+Qwen/Qwen2.5-1.5B-Instruct,random,0.2,0.533,0.399,0.322701688555,0.280701754386,0.523,0.00487568276886
+```
+
+Notes:
+- Executed remotely because the protocol forbids local model loading, pruning, and evaluation.
+- The table has the required 8 rows and the summary run reported `"status": "success"`.
+- Boundary Taylor used precomputed calibration dense margins, `max_length=2048`, and response micro-batch size 1 after earlier OOM retries.

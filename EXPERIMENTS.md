@@ -514,4 +514,4 @@ If rerunning after a partial M9 run, do not paste the whole block unless you fir
 
 ## Milestone Boundary
 
-M9 implementation is in progress. Run the remote pilot commands above and report the table before marking M9 passed. Do not run post-pruning recovery, DPO, LoRA, 3B/7B scaling, or M10 work until explicitly approved.
+M9 has passed after the remote Qwen2.5-1.5B 1k pilot table completed with 8 rows. Do not run post-pruning recovery, DPO, LoRA, 3B/7B scaling, general utility evaluation, or M10 work until explicitly approved.
