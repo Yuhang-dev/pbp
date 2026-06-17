@@ -9,6 +9,7 @@
 - M9 is implemented but not remotely validated yet; the 1k pilot table must be run on the remote machine before marking M9 passed.
 - M9 boundary Taylor 1k scoring failed with CUDA OOM. First failure came from inline calibration margin computation with `--base-model`; second failure showed Taylor scoring was not applying `--max-length`. Fixed in code by applying truncation inside `differentiable_response_logprobs_batch` and reducing Taylor hook temporary tensor precision before aggregation.
 - The RTX PRO 6000 Blackwell remote initially had `torch 2.3.0+cu121`, which does not support compute capability `sm_120`; install a CUDA 13 PyTorch wheel before rerunning model workloads.
+- M9 boundary Taylor with `--max-length 0` still OOMed on RTX PRO 6000 96GB due long HH-RLHF examples. Use `--max-length 4096` for the M9 pilot and record this as the boundary Taylor scoring context length.
 
 ## Resolved
 

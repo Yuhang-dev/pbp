@@ -32,8 +32,8 @@ runtime:
   data_disk: 50 GB
   batch_size: 1
   activation_max_length: 1024
-  boundary_taylor_max_length: 0
-  boundary_taylor_max_length_note: "0 disables Taylor truncation; use 4096 or 2048 if memory still becomes unstable."
+  boundary_taylor_max_length: 4096
+  boundary_taylor_max_length_note: "4096 is the M9 stability setting for RTX PRO 6000 96GB; 0 disables truncation but OOMed on long HH-RLHF examples."
   local_files_only: true
 
 paths:

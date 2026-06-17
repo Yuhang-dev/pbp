@@ -93,6 +93,7 @@ After the smoke test, run the 1k Milestone 1 evaluation from `README.md`.
 Run this on the remote machine only, after pulling the latest commit:
 
 ```bash
+set -euo pipefail
 source /root/.pbp_env
 cd /root/autodl-tmp/preference-boundary-pruning
 git pull
@@ -440,7 +441,7 @@ python scripts/score_pruning_importance.py \
   --out outputs/scores/qwen2p5_1p5b_boundary_taylor_weighted_m9_calib_1k.json \
   --dtype bfloat16 \
   --batch-size 1 \
-  --max-length 0 \
+  --max-length 4096 \
   --cache-dir "$HF_HUB_CACHE" \
   --local-files-only \
   --run-name m9_score_boundary_taylor_weighted_1k
@@ -508,6 +509,8 @@ Expected pilot criteria:
 - Every BCR evaluation run has `"status": "success"`.
 - The table contains the required columns: `model`, `method`, `ratio`, `coverage@0`, `coverage@q25`, `bcr@0`, `bcr@q25`, `pref_acc`, and `mean_margin_drop`.
 - Any failed remote run must be recorded in `KNOWN_ISSUES.md` before marking M9 passed.
+
+If rerunning after a partial M9 run, do not paste the whole block unless you first remove or rename the existing M9 outputs. The scripts intentionally refuse to overwrite existing output files and directories.
 
 ## Milestone Boundary
 

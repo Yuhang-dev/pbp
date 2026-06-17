@@ -65,7 +65,10 @@ def parse_args() -> argparse.Namespace:
         "--max-length",
         type=int,
         default=1024,
-        help="Maximum sequence length for activation/Taylor scoring. Use 0 to disable truncation for Taylor methods.",
+        help=(
+            "Maximum sequence length for activation/Taylor scoring. Use 0 to disable truncation for Taylor methods; "
+            "large HH-RLHF examples may OOM even on 96GB GPUs."
+        ),
     )
     parser.add_argument("--tau-mode", choices=["0", "q25", "q50", "q75", "value", "all"], default="q25")
     parser.add_argument("--tau-value", type=float, default=None)
